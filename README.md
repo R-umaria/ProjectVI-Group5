@@ -1,47 +1,49 @@
-# BoxedWithLove (CSCN73060 Project 1)
+# BoxedWithLove
 
-Flask + PostgreSQL + Docker boilerplate for **BoxedWithLove**.
+BoxedWithLove is a small e-commerce web app for a gift basket / gift box seller. The project is intentionally scoped for CSCN73060 Project 1 to prioritize **performance testing evidence** (baseline → change → re-test → explain).
 
-## Architecture
-- Server-rendered UI (Jinja2) + small REST API under `/api`
-- Flask app factory + module blueprints (Auth, Catalog, Cart, Orders)
-- PostgreSQL persistence via SQLAlchemy + Alembic migrations
-- Docker Compose stack for repeatable JMeter performance tests
+## Tech stack
+- Backend: **Flask (Python)**
+- API: RESTful JSON under base path **`/api`**
+- Database: **PostgreSQL**
+- Containerization: **Docker + docker-compose**
+- Performance testing: **Apache JMeter** (holiday-season traffic spike scenarios)
 
-## Quickstart (local, no Docker)
+## Repo structure (high-level)
+- `boxedwithlove/` — Flask application package
+- `boxedwithlove/app/` — app factory, config, extensions, shared utilities, DB models
+- `boxedwithlove/modules/` — module-owned routes (Auth, Catalog, Cart, Orders)
+- `docs/` — architecture + contribution rules + runbook
+- `jmeter/` — JMeter plans and notes for baseline/change/retest
+
+## Module ownership
+- **Module 1 — Auth & Accounts:** `boxedwithlove/modules/auth/`
+- **Module 2 — Catalog & Product Details:** `boxedwithlove/modules/catalog/`
+- **Module 3 — Cart Management:** `boxedwithlove/modules/cart/`
+- **Module 4 — Checkout & Orders + Performance Testing:** `boxedwithlove/modules/orders/` + `jmeter/`
+
+## Quickstart (Docker)
+```bash
+docker compose up --build
+# first-time only (in another terminal):
+docker compose exec web flask --app boxedwithlove.wsgi db upgrade
+docker compose exec web flask --app boxedwithlove.wsgi seed
+```
+
+## Quickstart (Local dev + Docker DB)
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # (Windows: .venv\\Scripts\\activate)
-
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
 
-# Start Postgres (recommended via Docker) OR set DATABASE_URL to your local DB
-# Create tables via migrations:
+docker compose up -d db
 flask --app boxedwithlove.wsgi db upgrade
-
-flask --app boxedwithlove.wsgi run --debug
+flask --app boxedwithlove.wsgi seed
+flask --app boxedwithlove.wsgi run --debug --port=8080
 ```
 
-## Quickstart (Docker Compose)
-```bash
-docker compose up --build
-
-# In another terminal, run migrations:
-docker compose exec web flask --app boxedwithlove.wsgi db upgrade
-```
-
-## API base path
-All endpoints are under: `http://localhost:8080/api/...`
-
-## Error format (standard)
-All errors return JSON:
-```json
-{ "error": { "code": "validation_error", "message": "...", "details": { }, "request_id": "..." } }
-```
-
-## Module ownership
-- Module 1: Auth & Accounts
-- Module 2: Catalog & Products (+ Reviews)
-- Module 3: Cart
-- Module 4: Checkout & Orders (+ Payment Methods) + Performance Testing
+## Documentation
+- Architecture overview: `docs/ARCHITECTURE.md`
+- Team workflow / rules: `docs/CONTRIBUTING.md`
+- Run commands / migrations / seed / JMeter: `docs/RUNBOOK.md`
