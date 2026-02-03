@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Cart - BoxedWithLove{% endblock %}
+{% block content %}
+<h1>Your Cart</h1>
+
+{% if not items %}
+  <p class="muted">Your cart is empty.</p>
+{% else %}
+  <div class="stack">
+    {% for i in items %}
+      <div class="row">
+        <div>
+          <div class="card-title">{{ i.product.name }}</div>
+          <div class="muted small">${{ "%.2f"|format(i.product.price_cents/100) }} × {{ i.quantity }}</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn" onclick="updateQty({{ i.id }}, {{ i.quantity + 1 }})">+</button>
+          <button class="btn" onclick="updateQty({{ i.id }}, {{ i.quantity - 1 }})" {% if i.quantity <= 1 %}disabled{% endif %}>-</button>
+          <button class="btn danger" onclick="removeItem({{ i.id }})">Remove</button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <p><a class="btn" href="{{ url_for('web_checkout') }}">Go to checkout</a></p>
+{% endif %}
+{% endblock %}

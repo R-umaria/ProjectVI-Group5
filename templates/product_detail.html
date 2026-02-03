@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} - BoxedWithLove{% endblock %}
+{% block content %}
+<h1>{{ product.name }}</h1>
+<p class="muted">${{ "%.2f"|format(product.price_cents/100) }}</p>
+<p>{{ product.description }}</p>
+
+{% if session.get('user_id') %}
+  <button class="btn" onclick="addToCart({{ product.id }})">Add to cart</button>
+  <p id="add-msg" class="muted"></p>
+{% else %}
+  <p class="muted">Log in to add items to your cart.</p>
+{% endif %}
+
+<p><a href="{{ url_for('web_products') }}">← Back to products</a></p>
+{% endblock %}

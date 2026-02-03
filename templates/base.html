@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}BoxedWithLove{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="{{ url_for('web_products') }}">BoxedWithLove</a>
+      <nav class="nav">
+        <a href="{{ url_for('web_products') }}">Products</a>
+        <a href="{{ url_for('web_cart') }}">Cart</a>
+        {% if session.get('user_id') %}
+          <form method="post" action="{{ url_for('web_logout') }}" class="inline">
+            <button type="submit">Logout</button>
+          </form>
+        {% else %}
+          <a href="{{ url_for('web_login') }}">Login</a>
+          <a href="{{ url_for('web_register') }}">Register</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Products - BoxedWithLove{% endblock %}
+{% block content %}
+<h1>Products</h1>
+<div class="grid">
+  {% for p in products %}
+    <a class="card" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+      <div class="card-title">{{ p.name }}</div>
+      <div class="muted">${{ "%.2f"|format(p.price_cents/100) }}</div>
+      <div class="small">{{ p.description }}</div>
+    </a>
+  {% endfor %}
+</div>
+{% endblock %}
