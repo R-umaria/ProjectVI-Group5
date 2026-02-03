@@ -1,0 +1,32 @@
+services:
+  web:
+    build: .
+    container_name: boxedwithlove-web
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["gunicorn","-w","2","-k","gthread","--threads","4","-b","0.0.0.0:8080","boxedwithlove.wsgi:app"]
+
+  db:
+    image: postgres:16-alpine
+    container_name: boxedwithlove-db
+    environment:
+      POSTGRES_USER: boxed
+      POSTGRES_PASSWORD: boxed
+      POSTGRES_DB: boxedwithlove
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boxed -d boxedwithlove"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
