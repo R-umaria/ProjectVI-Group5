@@ -2,8 +2,7 @@ from flask import Blueprint, request, session
 
 from db import db
 from models import CartItem, Product
-from app import error
-
+from helpers import error, current_user
 bp = Blueprint("cart_api", __name__)
 
 def require_user_id():

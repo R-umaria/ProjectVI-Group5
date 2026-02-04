@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 
 from models import Product
-from app import error
+from helpers import error, current_user
 from config import Config
 
 bp = Blueprint("catalog_api", __name__)
