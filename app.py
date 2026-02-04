@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from config import Config
 from db import db
 from models import User, Product, CartItem, Order, OrderItem
+from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
 from routes.auth import bp as auth_bp
@@ -19,6 +20,7 @@ from routes.options import bp as options_bp
 load_dotenv()
 
 def create_app() -> Flask:
+    global error, current_user
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config.from_object(Config)
 
