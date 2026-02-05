@@ -1,26 +1,218 @@
 {% extends "base.html" %}
 {% block title %}Cart - BoxedWithLove{% endblock %}
-{% block content %}
-<h1>Your Cart</h1>
 
-{% if not items %}
-  <p class="muted">Your cart is empty.</p>
-{% else %}
-  <div class="stack">
-    {% for i in items %}
-      <div class="row">
-        <div>
-          <div class="card-title">{{ i.product.name }}</div>
-          <div class="muted small">${{ "%.2f"|format(i.product.price_cents/100) }} × {{ i.quantity }}</div>
+{% block content %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="static/css/cart.css">
+<script>
+    document.body.classList.add('cart-page');
+</script>
+
+<!-- TEMP until we set up tailwind properly -->
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    background: '#f5f3f0',
+                    foreground: '#3d3d3d',
+                    card: '#ffffff',
+                    'card-foreground': '#3d3d3d',
+                    primary: '#8b4513',
+                    'primary-foreground': '#ffffff',
+                    muted: '#f5f3f0',
+                    'muted-foreground': '#999999',
+                    accent: '#8b6f47',
+                    'accent-foreground': '#ffffff',
+                    destructive: '#d9534f',
+                    'destructive-foreground': '#ffffff',
+                    border: '#e0ddd8',
+                },
+                fontFamily: {
+                    sans: ['DM Sans', 'sans-serif'],
+                    serif: ['Georgia', 'Playfair Display', 'serif'],
+                }
+            }
+        }
+    }
+</script>
+
+<main class="container mx-auto px-4 py-8 max-w-7xl">
+    <h2 class="text-4xl font-serif text-foreground mb-8">Your Cart</h2>
+
+    <div class="grid lg:grid-cols-3 gap-8 items-start">
+        <!-- cart items -->
+        <div class="lg:col-span-2">
+            <div id="cartItems" class="bg-card rounded-lg shadow-sm">
+                <!-- items fill in here -->
+            </div>
+            
+            <a href="/products" class="inline-flex items-center gap-2 mt-6 text-foreground hover:text-primary transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Continue Shopping
+            </a>
         </div>
-        <div class="row-actions">
-          <button class="btn" onclick="updateQty({{ i.id }}, {{ i.quantity + 1 }})">+</button>
-          <button class="btn" onclick="updateQty({{ i.id }}, {{ i.quantity - 1 }})" {% if i.quantity <= 1 %}disabled{% endif %}>-</button>
-          <button class="btn danger" onclick="removeItem({{ i.id }})">Remove</button>
-        </div>
-      </div>
-    {% endfor %}
-  </div>
-  <p><a class="btn" href="{{ url_for('web_checkout') }}">Go to checkout</a></p>
-{% endif %}
+
+        <!-- order summary -->
+        <aside class="order-summary bg-card rounded-lg shadow-sm p-6">
+            <h3 class="text-xl font-serif text-foreground mb-6">Order Summary</h3>
+            
+            <div class="space-y-3 mb-4">
+                <div class="flex justify-between text-foreground">
+                    <span>Subtotal</span>
+                    <span id="subtotal" class="font-medium">$0.00</span>
+                </div>
+                
+                <div class="flex justify-between text-muted-foreground">
+                    <span>Tax</span>
+                    <span id="tax">$0.00</span>
+                </div>
+                
+                <div class="flex justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span class="text-accent font-medium">Free</span>
+                </div>
+            </div>
+            
+            <hr class="border-border my-4">
+            
+            <div class="flex justify-between text-xl font-semibold text-foreground mb-6">
+                <span>Total</span>
+                <span id="total">$0.00</span>
+            </div>
+            
+            <button 
+                onclick="handleCheckout()" 
+                class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                Sign in to Checkout
+            </button>
+            
+            <p class="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
+                You'll need to sign in or create an account to complete your purchase.
+            </p>
+        </aside>
+    </div>
+</main>
+
+<script>
+    // load cart when page loads
+    document.addEventListener('DOMContentLoaded', loadCart);
+
+    async function loadCart() {
+        try {
+            const response = await fetch('/api/cart');
+            const data = await response.json();
+            
+            displayCartItems(data.items);
+            updateSummary(data.summary);
+        } catch (error) {
+            console.error('Error loading cart:', error);
+        }
+    }
+
+    function displayCartItems(items) {
+        const container = document.getElementById('cartItems');
+        
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-16 px-4 empty-cart">
+                    <p class="text-lg mb-2">Your cart is empty</p>
+                    <p class="text-sm mb-6">Looks like you havent added any gift baskets yet</p>
+                    <a href="/products" class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity"> 
+                        Start Shopping
+                    </a>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = items.map((item, index) => `
+            <div class="flex flex-col md:flex-row md:items-center gap-4 p-4 ${index !== items.length - 1 ? 'border-b border-border' : ''}" data-item-id="${item.id}">
+                <div class="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 placeholder-image">
+                    <img src="${item.product_image}" alt="${item.product_name}" class="w-full h-full object-cover rounded-lg">
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-medium text-foreground text-lg mb-1">${item.product_name}</h4>
+                    <p class="text-sm text-muted-foreground">${item.product_description}</p>
+                </div>
+                
+                <div class="text-lg font-medium text-foreground md:w-24 text-left md:text-right item-price">
+                    $${(item.price_cents / 100).toFixed(2)}
+                </div>
+                
+                <div class="flex items-center gap-2 bg-muted rounded-lg p-1">
+                    <button 
+                        onclick="updateQuantity('${item.id}', ${item.quantity - 1})" 
+                        class="qty-btn w-8 h-8 flex items-center justify-center hover:bg-background rounded transition-colors text-foreground">
+                        −
+                    </button>
+                    <span class="w-8 text-center font-medium text-foreground">${item.quantity}</span>
+                    <button 
+                        onclick="updateQuantity('${item.id}', ${item.quantity + 1})" 
+                        class="qty-btn w-8 h-8 flex items-center justify-center hover:bg-background rounded transition-colors text-foreground">
+                        +
+                    </button>
+                </div>
+                
+                <button 
+                    onclick="removeItem('${item.id}')" 
+                    class="remove-btn flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Remove
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function updateSummary(summary) {
+        document.getElementById('subtotal').textContent = `$${(summary.subtotal_cents / 100).toFixed(2)}`;
+        document.getElementById('tax').textContent = `$${(summary.tax_cents / 100).toFixed(2)}`;
+        document.getElementById('total').textContent = `$${(summary.total_cents / 100).toFixed(2)}`;
+    }
+
+    async function updateQuantity(itemId, newQuantity) {
+        if (newQuantity < 1) {
+            return removeItem(itemId);
+        }
+        
+        try {
+            const response = await fetch(`/api/cart/items/${itemId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quantity: newQuantity })
+            });
+            
+            if (response.ok) {
+                loadCart();
+            }
+        } catch (error) {
+            console.error('Error updating quantity:', error);
+        }
+    }
+
+    async function removeItem(itemId) {
+        try {
+            const response = await fetch(`/api/cart/items/${itemId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                loadCart();
+            }
+        } catch (error) {
+            console.error('Error removing item:', error);
+        }
+    }
+
+    function handleCheckout() {
+        window.location.href = '/login?redirect=/checkout';
+    }
+</script>
 {% endblock %}
