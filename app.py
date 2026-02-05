@@ -16,6 +16,7 @@ from routes.catalog import bp as catalog_bp
 from routes.cart import bp as cart_bp
 from routes.orders import bp as orders_bp
 from routes.options import bp as options_bp
+from routes.payment_methods import bp as payment_methods_bp
 
 load_dotenv()
 
@@ -122,6 +123,8 @@ def create_app() -> Flask:
     app.register_blueprint(cart_bp, url_prefix="/api")
     app.register_blueprint(orders_bp, url_prefix="/api")
     app.register_blueprint(options_bp, url_prefix="/api")
+    app.register_blueprint(payment_methods_bp, url_prefix="/api")
+
 
     # --- CLI commands (simple) ---
     @app.cli.command("init-db")
