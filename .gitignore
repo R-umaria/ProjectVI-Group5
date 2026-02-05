@@ -1,0 +1,58 @@
+# Python / Flask
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+instance/
+*.sqlite3
+*.db
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment files
+.env
+.flaskenv
+
+# Tailwind / Node tooling
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+.eslintcache
+.stylelintcache
+tailwind.config.js.bak
+
+# Frontend build output
+dist/
+build/
+public/build/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
