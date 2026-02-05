@@ -50,3 +50,27 @@ class OrderItem(db.Model):
 
     order = db.relationship("Order", lazy="joined")
     product = db.relationship("Product", lazy="joined")
+
+class PaymentMethod(db.Model):
+    __tablename__ = "payment_methods"
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+
+    # Non-sensitive “checkout info” only (NO full card numbers)
+    cardholder_name = db.Column(db.String(120), nullable=False)
+    brand = db.Column(db.String(40), nullable=False)          # e.g., "Visa"
+    last4 = db.Column(db.String(4), nullable=False)           # "1234"
+    exp_month = db.Column(db.Integer, nullable=False)         # 1-12
+    exp_year = db.Column(db.Integer, nullable=False)          # 2026
+    billing_postal = db.Column(db.String(20), nullable=True)
+
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", lazy="joined")
+
+    __table_args__ = (
+        db.Index("ix_payment_methods_user_default", "user_id", "is_default"),
+    )
