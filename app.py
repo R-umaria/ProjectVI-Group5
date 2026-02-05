@@ -56,12 +56,7 @@ def create_app() -> Flask:
 
     @app.get("/cart")
     def web_cart():
-        user = current_user()
-        if not user:
-            flash("Please log in to view your cart.", "info")
-            return redirect(url_for("web_login"))
-        items = CartItem.query.filter_by(user_id=user.id).all()
-        return render_template("cart.html", items=items)
+        return render_template("cart.html")
 
     @app.get("/checkout")
     def web_checkout():
@@ -84,6 +79,11 @@ def create_app() -> Flask:
             flash("Invalid email or password.", "error")
             return redirect(url_for("web_login"))
         session["user_id"] = user.id
+
+        # added this so not logged in users can still create a cart, when they
+        # eventually log in, it gets merged to their user cart though - andy
+        session_cart_to_user(user.id) 
+
         flash("Logged in.", "success")
         return redirect(url_for("web_products"))
 
@@ -148,6 +148,33 @@ def create_app() -> Flask:
 
     return app
 
+# merges the session cart into users database cart when they log in or register, 
+# so that non logged in users can still make a cart and it will sync to their account upon login/register
+def session_cart_to_user(user_id: int):
+    session_cart = session.get("cart", {})
+    
+    if not session_cart:
+        return
+    
+    for product_id_str, quantity in session_cart.items():
+        product_id = int(product_id_str)
+        
+        # see if item is already in someones cart
+        existing = CartItem.query.filter_by(user_id=user_id, product_id=product_id).first()
+        if existing:
+            #update the quanitiy if it is already there
+            existing.quantity += quantity
+        else:
+            #if not, add a new item
+            new_item = CartItem(user_id=user_id, product_id=product_id, quantity=quantity)
+            db.session.add(new_item)
+    
+    db.session.commit()
+    # clear the sessions cart after done merging
+    session.pop("cart", None)
+
+
+#-----moved these to their own file, check in helpers.py!!-----
 
 def error(code: str, message: str, status: int = 400, details: dict | None = None):
     payload = {"error": {"code": code, "message": message}}
