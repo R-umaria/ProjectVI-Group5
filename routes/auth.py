@@ -3,8 +3,7 @@ from flask import Blueprint, request, session
 
 from db import db
 from models import User
-from app import error  # uses the shared error() function
-
+from helpers import error, current_user
 bp = Blueprint("auth_api", __name__)
 
 @bp.post("/auth/register")

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from config import Config
 from db import db
 from models import User, Product, CartItem, Order, OrderItem
+from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
 from routes.auth import bp as auth_bp
@@ -19,6 +20,7 @@ from routes.options import bp as options_bp
 load_dotenv()
 
 def create_app() -> Flask:
+    global error, current_user
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config.from_object(Config)
 
@@ -176,18 +178,18 @@ def session_cart_to_user(user_id: int):
 
 #-----moved these to their own file, check in helpers.py!!-----
 
-def error(code: str, message: str, status: int = 400, details: dict | None = None):
-    payload = {"error": {"code": code, "message": message}}
-    if details is not None:
-        payload["error"]["details"] = details
-    return jsonify(payload), status
+# def error(code: str, message: str, status: int = 400, details: dict | None = None):
+#     payload = {"error": {"code": code, "message": message}}
+#     if details is not None:
+#         payload["error"]["details"] = details
+#     return jsonify(payload), status
 
 
-def current_user() -> User | None:
-    uid = session.get("user_id")
-    if not uid:
-        return None
-    return User.query.get(uid)
+# def current_user() -> User | None:
+#     uid = session.get("user_id")
+#     if not uid:
+#         return None
+#     return User.query.get(uid)
 
 
 app = create_app()
