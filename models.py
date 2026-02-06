@@ -39,6 +39,13 @@ class Order(db.Model):
     total_cents = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(32), nullable=False, default="placed")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    items = db.relationship(
+        "OrderItem",
+        backref="order_parent",
+        lazy="select",
+        cascade="all, delete-orphan"
+    )
+
 
 class OrderItem(db.Model):
     __tablename__ = "order_items"
@@ -47,9 +54,8 @@ class OrderItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False, index=True)
     unit_price_cents = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-
-    order = db.relationship("Order", lazy="joined")
     product = db.relationship("Product", lazy="joined")
+
 
 class PaymentMethod(db.Model):
     __tablename__ = "payment_methods"
