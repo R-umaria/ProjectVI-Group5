@@ -36,16 +36,22 @@ def create_app() -> Flask:
 
     @app.errorhandler(400)
     def bad_request(e):
-        return error("bad_request", "Bad request", status=400)
+        if request.path.startswith("/api/"):
+            return error("bad_request", "Bad request", status=400)
+        return render_template("400.html"), 400
 
     @app.errorhandler(500)
     def server_error(e):
-        return error("server_error", "Unexpected server error", status=500)
+        if request.path.startswith("/api/"):
+            return error("server_error", "Unexpected server error", status=500)
+        return render_template("500.html"), 500
 
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
-        return redirect(url_for("web_products"))
+        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        return render_template("home.html", featured=featured)
+
 
     @app.get("/products")
     def web_products():
