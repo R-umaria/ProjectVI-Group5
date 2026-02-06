@@ -16,6 +16,7 @@ from routes.catalog import bp as catalog_bp
 from routes.cart import bp as cart_bp
 from routes.orders import bp as orders_bp
 from routes.options import bp as options_bp
+from routes.payment_methods import bp as payment_methods_bp
 
 load_dotenv()
 
@@ -35,16 +36,22 @@ def create_app() -> Flask:
 
     @app.errorhandler(400)
     def bad_request(e):
-        return error("bad_request", "Bad request", status=400)
+        if request.path.startswith("/api/"):
+            return error("bad_request", "Bad request", status=400)
+        return render_template("400.html"), 400
 
     @app.errorhandler(500)
     def server_error(e):
-        return error("server_error", "Unexpected server error", status=500)
+        if request.path.startswith("/api/"):
+            return error("server_error", "Unexpected server error", status=500)
+        return render_template("500.html"), 500
 
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
-        return redirect(url_for("web_products"))
+        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        return render_template("home.html", featured=featured)
+
 
     @app.get("/products")
     def web_products():
@@ -122,6 +129,8 @@ def create_app() -> Flask:
     app.register_blueprint(cart_bp, url_prefix="/api")
     app.register_blueprint(orders_bp, url_prefix="/api")
     app.register_blueprint(options_bp, url_prefix="/api")
+    app.register_blueprint(payment_methods_bp, url_prefix="/api")
+
 
     # --- CLI commands (simple) ---
     @app.cli.command("init-db")
