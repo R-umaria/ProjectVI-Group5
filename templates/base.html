@@ -48,7 +48,7 @@
           </details>
         {% else %}
           <a class="navlink" href="{{ url_for('web_login') }}">Sign In</a>
-          <a class="navlink" href="{{ url_for('web_register') }}">Register</a>
+          <a class="navlink" href="{{ url_for('web_register') }}">Register</a> <!--SHOULD BE REOMOVED ONCE LOGIN/REGISTRATION PAGE IS CREATED-->
         {% endif %}
 
         <a class="iconbtn cartbtn" href="{{ url_for('web_cart') }}" aria-label="Cart">
