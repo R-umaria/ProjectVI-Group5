@@ -219,6 +219,17 @@ details.account > summary::-webkit-details-marker { display: none; }
 .btn-primary:hover { filter: brightness(0.98); }
 .btn-outline { background: transparent; }
 .btn-secondary { background: rgba(250,247,241,0.92); border-color: rgba(250,247,241,0.55); color: #2b1a1a; }
+.btn-primary-outline:hover {
+  background: transparent;
+  border-color: var(--primary);
+  color: var(--primary);
+  filter: none;
+}
+.btn-accent:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--background);
+}
 
 .link { color: var(--muted-foreground); font-weight: 600; }
 .link:hover { color: var(--foreground); }
@@ -314,6 +325,7 @@ input {
   place-items: center;
   border-radius: 999px;
   background: rgba(123, 45, 42, 0.10);
+  color: var(--primary);
 }
 .vp-title { font-weight: 600; }
 .vp-sub { font-size: 13px; color: var(--muted-foreground); margin-top: 2px; }
