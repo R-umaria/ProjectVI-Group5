@@ -29,7 +29,12 @@ async function removeItem(itemId) {
 }
 
 async function placeOrder() {
-  const res = await fetch("/api/orders", {method: "POST"});
+  const res = await fetch("/api/orders", {
+    method: "POST"//,
+    // headers: { "Content-Type": "application/json" },
+    // body: JSON.stringify({}),
+    // credentials: "same-origin"
+  }); // Might have to add headers/body/credentials later if any issues arise
   const el = document.getElementById("order-msg");
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

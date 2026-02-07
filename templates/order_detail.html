@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} - BoxedWithLove{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-row">
+    <h1 class="h1">Order #{{ order.id }}</h1>
+    <a class="link" href="{{ url_for('web_orders') }}">Back to orders →</a>
+  </div>
+  <p class="muted">Status: <strong>{{ order.status }}</strong></p>
+
+  {% if items %}
+    <div class="stack">
+      {% for item in items %}
+        <div class="row">
+          <div>
+            <div class="card-title">{{ item.product.name if item.product else ('Product #' ~ item.product_id) }}</div>
+            <div class="muted small">Qty: {{ item.quantity }}</div>
+          </div>
+          <div class="muted">${{ "%.2f"|format((item.unit_price_cents * item.quantity)/100) }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No items found for this order.</p>
+  {% endif %}
+</div>
+{% endblock %}
