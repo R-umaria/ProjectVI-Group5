@@ -297,9 +297,10 @@ input {
 .hero-decor {
   position: absolute;
   right: 24px;
-  top: 28px;
-  width: 160px;
-  height: 160px;
+  top: 65%;
+  transform: translateY(-50%);
+  width: 28em;
+  height: 28em;
   opacity: 0.10;
   pointer-events: none;
 }
@@ -490,5 +491,5 @@ input {
 @media (max-width: 640px) {
   .hero .wrap { padding: 54px 16px; }
   .hero-title { font-size: 44px; }
-  .hero-decor { right: 10px; top: 10px; width: 120px; height: 120px; }
+  .hero-decor { right: 10px; top: 50%; width: 120px; height: 120px; }
 }
