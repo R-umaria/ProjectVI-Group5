@@ -2,92 +2,129 @@
 {% block title %}BoxedWithLove{% endblock %}
 
 {% block content %}
-<section class="hero">
-  <div class="hero-inner">
-    <h1 class="hero-title">Send love in a box.</h1>
-    <p class="hero-subtitle">
-      Discover beautifully curated gift baskets for every occasion.<br>
-      Each box is thoughtfully crafted to bring joy to your loved ones.
-    </p>
+<!-- Full-width hero (uses full-bleed wrapper to escape the base container) -->
+<section class="full-bleed hero">
+  <div class="wrap">
+    <div class="hero-content">
+      <h1 class="hero-title">Send love in a box.</h1>
+      <p class="hero-subtitle">
+        Discover beautifully curated gift baskets for every occasion.
+        Each box is thoughtfully crafted to bring joy to your loved ones.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('web_products') }}">Shop Now <span aria-hidden="true">→</span></a>
+        <a class="btn btn-outline btn-lg" href="{{ url_for('web_products', category='gourmet') }}">View Bestsellers</a>
+      </div>
+    </div>
 
-    <div class="hero-actions">
-      <a class="btn primary" href="{{ url_for('web_products') }}">Shop Now →</a>
-      <a class="btn" href="#featured">View Bestsellers</a>
+    <div class="hero-decor" aria-hidden="true">
+      <!-- Gift icon (inline SVG, low opacity) -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 12v10H4V12" />
+        <path d="M2 7h20v5H2z" />
+        <path d="M12 22V7" />
+        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C14 2 12 7 12 7z" />
+        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C10 2 12 7 12 7z" />
+      </svg>
     </div>
   </div>
 </section>
 
-<section class="feature-strip">
-  <div class="feature">
-    <div class="feature-icon">🎁</div>
-    <div>
-      <div class="feature-title">Curated with Care</div>
-      <div class="feature-sub">Hand-picked premium items</div>
-    </div>
-  </div>
-  <div class="feature">
-    <div class="feature-icon">🚚</div>
-    <div>
-      <div class="feature-title">Free Shipping</div>
-      <div class="feature-sub">On orders over $75</div>
-    </div>
-  </div>
-  <div class="feature">
-    <div class="feature-icon">❤️</div>
-    <div>
-      <div class="feature-title">Gift-Ready Packaging</div>
-      <div class="feature-sub">Beautifully presented</div>
+<!-- Value Props -->
+<section class="full-bleed valueprops">
+  <div class="wrap">
+    <div class="valueprops-grid">
+      <div class="vp">
+        <div class="vp-icon" aria-hidden="true">🎁</div>
+        <div>
+          <div class="vp-title">Curated with Care</div>
+          <div class="vp-sub">Hand-picked premium items</div>
+        </div>
+      </div>
+      <div class="vp">
+        <div class="vp-icon" aria-hidden="true">🚚</div>
+        <div>
+          <div class="vp-title">Free Shipping</div>
+          <div class="vp-sub">On orders over $75</div>
+        </div>
+      </div>
+      <div class="vp">
+        <div class="vp-icon" aria-hidden="true">❤️</div>
+        <div>
+          <div class="vp-title">Gift-Ready Packaging</div>
+          <div class="vp-sub">Beautifully presented</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="home-section">
-  <h2 class="home-h2">Shop by Category</h2>
-  <p class="muted center">Find the perfect gift for any occasion</p>
-
-  <div class="categories">
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">🧘</div><div class="cat-name">Wellness</div><div class="cat-sub">3 items</div></a>
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">🍷</div><div class="cat-name">Gourmet</div><div class="cat-sub">4 items</div></a>
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">🛏️</div><div class="cat-name">Comfort</div><div class="cat-sub">1 item</div></a>
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">👶</div><div class="cat-name">Baby</div><div class="cat-sub">1 item</div></a>
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">🎉</div><div class="cat-name">Celebration</div><div class="cat-sub">1 item</div></a>
-    <a class="cat" href="{{ url_for('web_products') }}"><div class="cat-emoji">🌱</div><div class="cat-name">Hobby</div><div class="cat-sub">1 item</div></a>
-  </div>
-</section>
-
-<section id="featured" class="home-section">
-  <div class="home-row">
-    <div>
-      <h2 class="home-h2">Featured Collections</h2>
-      <p class="muted">Our most loved gift baskets</p>
+<!-- Categories -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head center">
+      <h2 class="h2-serif">Shop by Category</h2>
+      <p class="muted">Find the perfect gift for any occasion</p>
     </div>
-    <a class="link" href="{{ url_for('web_products') }}">View All →</a>
-  </div>
 
-  <div class="grid featured-grid">
-    {% for p in featured %}
-      <a class="card featured-card" href="{{ url_for('web_product_detail', product_id=p.id) }}">
-        <div class="badge">Featured</div>
-        <div class="featured-img">🧺</div>
-        <div class="card-title">{{ p.name }}</div>
-        <div class="stars">★★★★★</div>
-        <div class="price">${{ "%.2f"|format(p.price_cents/100) }}</div>
-      </a>
-    {% endfor %}
+    <div class="categories-grid">
+      {% for c in categories %}
+        <a class="category-card" href="{{ url_for('web_products', category=c.slug) }}">
+          <div class="category-emoji" aria-hidden="true">{{ c.emoji }}</div>
+          <div class="category-name">{{ c.name }}</div>
+          <div class="category-count">{{ c.count }} items</div>
+        </a>
+      {% endfor %}
+    </div>
   </div>
 </section>
 
-<section class="testimonial">
-  <div class="stars big">★★★★★</div>
-  <blockquote>
-    “The Luxe Spa Retreat Box was absolutely perfect. My mom loved every single item, and the presentation was stunning!”
-  </blockquote>
-  <div class="muted center">Sarah M. — Verified Buyer</div>
+<!-- Featured Collections -->
+<section class="full-bleed featured">
+  <div class="wrap">
+    <div class="featured-head">
+      <div>
+        <h2 class="h2-serif">Featured Collections</h2>
+        <p class="muted">Our most loved gift baskets</p>
+      </div>
+      <a class="link" href="{{ url_for('web_products') }}">View All <span aria-hidden="true">→</span></a>
+    </div>
+
+    <div class="featured-grid">
+      {% for p in featured %}
+        <a class="featured-card" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+          <span class="chip">Featured</span>
+          <div class="thumb" aria-hidden="true">🧺</div>
+          <div class="p-title">{{ p.name }}</div>
+          <div class="stars" aria-hidden="true">★★★★★</div>
+          <div class="p-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
 </section>
 
-<section class="cta">
-  <h2>Ready to send some love?</h2>
-  <p>Browse our collection and find the perfect gift basket for your special someone.</p>
-  <a class="btn cta-btn" href="{{ url_for('web_products') }}">Start Shopping →</a>
+<!-- Testimonial -->
+<section class="section">
+  <div class="wrap">
+    <div class="testimonial">
+      <div class="stars-lg" aria-hidden="true">★★★★★</div>
+      <blockquote class="quote">
+        “The Luxe Spa Retreat Box was absolutely perfect. My mom loved every single item, and the presentation was stunning!”
+      </blockquote>
+      <div class="muted">Sarah M. — Verified Buyer</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="full-bleed cta">
+  <div class="wrap">
+    <div class="cta-inner">
+      <h2 class="h2-serif cta-title">Ready to send some love?</h2>
+      <p class="cta-sub">Browse our collection and find the perfect gift basket for your special someone.</p>
+      <a class="btn btn-secondary btn-lg" href="{{ url_for('web_products') }}">Start Shopping <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
 </section>
 {% endblock %}

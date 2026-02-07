@@ -4,28 +4,68 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}BoxedWithLove{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <div class="container">
+  <header class="topbar" role="banner">
+    <nav class="navwrap" aria-label="Primary">
       <a class="brand" href="{{ url_for('home') }}">BoxedWithLove</a>
-      <nav class="nav">
-        <a href="{{ url_for('web_products') }}">Products</a>
-        <a href="{{ url_for('web_cart') }}">Cart</a>
-        {% if session.get('user_id') %}
-          <form method="post" action="{{ url_for('web_logout') }}" class="inline">
-            <button type="submit">Logout</button>
-          </form>
+
+      <form class="navsearch" action="{{ url_for('web_products') }}" method="get" role="search">
+        <span class="icon" aria-hidden="true">
+          <!-- search icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+        </span>
+        <input name="search" type="search" placeholder="Search gift baskets..." value="{{ request.args.get('search','') }}" />
+      </form>
+
+      <div class="navlinks">
+        <a class="navlink" href="{{ url_for('web_products') }}">Shop</a>
+
+        {% if nav_user %}
+          <details class="account">
+            <summary class="iconbtn" aria-label="Account">
+              <!-- user icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21a8 8 0 0 0-16 0"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </summary>
+            <div class="menu" role="menu">
+              <div class="menu-name">{{ nav_user.email }}</div>
+              <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
+              <div class="menu-sep"></div>
+              <form method="post" action="{{ url_for('web_logout') }}">
+                <button class="menu-danger" type="submit">Sign Out</button>
+              </form>
+            </div>
+          </details>
         {% else %}
-          <a href="{{ url_for('web_login') }}">Login</a>
-          <a href="{{ url_for('web_register') }}">Register</a>
+          <a class="navlink" href="{{ url_for('web_login') }}">Sign In</a>
         {% endif %}
-      </nav>
-    </div>
+
+        <a class="iconbtn cartbtn" href="{{ url_for('web_cart') }}" aria-label="Cart">
+          <!-- shopping bag icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z"></path>
+            <path d="M3 6h18"></path>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          {% if nav_cart_count and nav_cart_count > 0 %}
+            <span class="badge" aria-label="{{ nav_cart_count }} items in cart">{{ '9+' if nav_cart_count > 9 else nav_cart_count }}</span>
+          {% endif %}
+        </a>
+      </div>
+    </nav>
   </header>
 
-  <main class="container">
+  <main class="container" role="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">
@@ -38,6 +78,44 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <footer class="footer">
+    <div class="footer-wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="footer-logo" href="{{ url_for('home') }}">BoxedWithLove</a>
+          <p class="muted">
+            Curated gift baskets crafted with care for every occasion. Send love, joy, and
+            thoughtfulness in beautifully packaged boxes.
+          </p>
+        </div>
+
+        <div>
+          <div class="footer-title">Quick Links</div>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('web_products') }}">Shop All</a></li>
+            <li><a href="{{ url_for('web_products', category='gourmet') }}">Gourmet Gifts</a></li>
+            <li><a href="{{ url_for('web_products', category='wellness') }}">Wellness</a></li>
+            <li><a href="{{ url_for('web_products', category='celebration') }}">Celebrations</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="footer-title">Help</div>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('web_cart') }}">Cart</a></li>
+            <li><a href="{{ url_for('web_orders') }}">Track Order</a></li>
+            <li><a href="{{ url_for('web_login') }}">Sign In</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="muted">&copy; {{ current_year }} BoxedWithLove. All rights reserved.</p>
+        <p class="muted">Made with <span aria-hidden="true">♥</span> for gift givers everywhere</p>
+      </div>
+    </div>
+  </footer>
 
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
 </body>
