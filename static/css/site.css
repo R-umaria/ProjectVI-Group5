@@ -40,7 +40,7 @@ img { max-width: 100%; display: block; }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(250, 247, 241, 0.92);
+  background: rgba(250, 247, 241, 0.50);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
@@ -219,6 +219,11 @@ details.account > summary::-webkit-details-marker { display: none; }
 .btn-primary:hover { filter: brightness(0.98); }
 .btn-outline { background: transparent; }
 .btn-secondary { background: rgba(250,247,241,0.92); border-color: rgba(250,247,241,0.55); color: #2b1a1a; }
+.btn-secondary:hover {
+  background: rgba(250, 247, 241, 0.5);
+  border-color: var(--secondary);
+  color: var(--foreground);
+}
 .btn-primary-outline:hover {
   background: transparent;
   border-color: var(--primary);
@@ -273,13 +278,14 @@ input {
 
 /* Homepage */
 .hero {
+  margin-top: -1.5em;
   background: rgba(243, 234, 220, 0.30);
   overflow: hidden;
 }
 
 .hero .wrap {
   position: relative;
-  padding: 72px 16px;
+  padding: 150px 16px;
 }
 
 .hero-content { max-width: 42rem; }
@@ -296,11 +302,11 @@ input {
 
 .hero-decor {
   position: absolute;
-  right: 24px;
-  top: 65%;
+  right: 85px;
+  top: 50%;
   transform: translateY(-50%);
-  width: 28em;
-  height: 28em;
+  width: 15em;
+  height: 15em;
   opacity: 0.10;
   pointer-events: none;
 }
