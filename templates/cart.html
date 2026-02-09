@@ -46,10 +46,11 @@
             <div id="cartItems" class="bg-card rounded-lg shadow-sm">
                 <!-- items fill in here -->
             </div>
-            
-            <a href="/products" class="inline-flex items-center gap-2 mt-6 text-foreground hover:text-primary transition-colors">
+
+            <a href="/products"
+                class="inline-flex items-center gap-2 mt-6 text-foreground hover:text-primary transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
                 Continue Shopping
             </a>
@@ -58,40 +59,49 @@
         <!-- order summary -->
         <aside class="order-summary bg-card rounded-lg shadow-sm p-6">
             <h3 class="text-xl font-serif text-foreground mb-6">Order Summary</h3>
-            
+
             <div class="space-y-3 mb-4">
                 <div class="flex justify-between text-foreground">
                     <span>Subtotal</span>
                     <span id="subtotal" class="font-medium">$0.00</span>
                 </div>
-                
+
                 <div class="flex justify-between text-muted-foreground">
                     <span>Tax</span>
                     <span id="tax">$0.00</span>
                 </div>
-                
+
                 <div class="flex justify-between text-muted-foreground">
                     <span>Shipping</span>
                     <span class="text-accent font-medium">Free</span>
                 </div>
             </div>
-            
+
             <hr class="border-border my-4">
-            
+
             <div class="flex justify-between text-xl font-semibold text-foreground mb-6">
                 <span>Total</span>
                 <span id="total">$0.00</span>
             </div>
             
-            <button 
-                onclick="handleCheckout()" 
+            <!-- if the user is logged in the button just says checkout,
+             otherwise it directs them to sign in -->
+            {% if session.get("user_id") %}
+            <a href="/checkout"
+                class="block w-full text-center bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                Checkout
+            </a>
+            {% else %}
+            <button onclick="handleCheckout()"
                 class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity">
                 Sign in to Checkout
             </button>
-            
+
             <p class="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
                 You'll need to sign in or create an account to complete your purchase.
             </p>
+            {% endif %}
+
         </aside>
     </div>
 </main>
@@ -104,7 +114,7 @@
         try {
             const response = await fetch('/api/cart');
             const data = await response.json();
-            
+
             displayCartItems(data.items);
             updateSummary(data.summary);
         } catch (error) {
@@ -114,7 +124,7 @@
 
     function displayCartItems(items) {
         const container = document.getElementById('cartItems');
-        
+
         if (items.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-16 px-4 empty-cart">
@@ -127,7 +137,7 @@
             `;
             return;
         }
-        
+
         container.innerHTML = items.map((item, index) => `
             <div class="flex flex-col md:flex-row md:items-center gap-4 p-4 ${index !== items.length - 1 ? 'border-b border-border' : ''}" data-item-id="${item.id}">
                 <div class="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 placeholder-image">
@@ -179,7 +189,7 @@
         if (newQuantity < 1) {
             return removeItem(itemId);
         }
-        
+
         try {
             const response = await fetch(`/api/cart/items/${itemId}`, {
                 method: 'PUT',
@@ -188,7 +198,7 @@
                 },
                 body: JSON.stringify({ quantity: newQuantity })
             });
-            
+
             if (response.ok) {
                 loadCart();
             }
@@ -202,7 +212,7 @@
             const response = await fetch(`/api/cart/items/${itemId}`, {
                 method: 'DELETE'
             });
-            
+
             if (response.ok) {
                 loadCart();
             }
