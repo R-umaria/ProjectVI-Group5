@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request, session, render_template, redirect, url_for, flash
 from dotenv import load_dotenv
@@ -35,21 +36,71 @@ def create_app() -> Flask:
 
     @app.errorhandler(400)
     def bad_request(e):
-        return error("bad_request", "Bad request", status=400)
+        if request.path.startswith("/api/"):
+            return error("bad_request", "Bad request", status=400)
+        return render_template("400.html"), 400
 
     @app.errorhandler(500)
     def server_error(e):
-        return error("server_error", "Unexpected server error", status=500)
+        if request.path.startswith("/api/"):
+            return error("server_error", "Unexpected server error", status=500)
+        return render_template("500.html"), 500
+
+    @app.context_processor
+    def inject_nav():
+        """Inject navbar data (user + cart badge count) into all templates."""
+        user = current_user()
+        if user:
+            count = (
+                db.session.query(db.func.coalesce(db.func.sum(CartItem.quantity), 0))
+                .filter(CartItem.user_id == user.id)
+                .scalar()
+            )
+        else:
+            count = sum((session.get("cart") or {}).values())
+        return {
+            "nav_user": user,
+            "nav_cart_count": int(count or 0),
+            "current_year": datetime.utcnow().year,
+        }
 
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
-        return redirect(url_for("web_products"))
+        # Homepage: wide layout + featured products.
+        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        categories = [
+            {"name": "Wellness", "slug": "wellness", "emoji": "🧘", "count": 3},
+            {"name": "Gourmet", "slug": "gourmet", "emoji": "🍷", "count": 4},
+            {"name": "Comfort", "slug": "comfort", "emoji": "🛋️", "count": 1},
+            {"name": "Baby", "slug": "baby", "emoji": "👶", "count": 1},
+            {"name": "Celebration", "slug": "celebration", "emoji": "🎉", "count": 1},
+            {"name": "Hobby", "slug": "hobby", "emoji": "🌱", "count": 1},
+        ]
+        return render_template("home.html", featured=featured, categories=categories)
 
     @app.get("/products")
     def web_products():
-        products = Product.query.order_by(Product.id.asc()).limit(24).all()
-        return render_template("products.html", products=products)
+        search = (request.args.get("search") or "").strip()
+        category = (request.args.get("category") or "").strip().lower()
+
+        q = Product.query
+        # If category is provided but no search, treat category as a search hint.
+        if category and not search:
+            search = category
+
+        if search:
+            like = f"%{search}%"
+            q = q.filter(
+                db.or_(
+                    Product.name.ilike(like),
+                    Product.description.ilike(like),
+                    Product.sku.ilike(like),
+                )
+            )
+
+        products = q.order_by(Product.id.asc()).limit(24).all()
+        return render_template("products.html", products=products, search=search, category=category)
 
     @app.get("/products/<int:product_id>")
     def web_product_detail(product_id: int):
@@ -67,6 +118,27 @@ def create_app() -> Flask:
             flash("Please log in to checkout.", "info")
             return redirect(url_for("web_login"))
         return render_template("checkout.html")
+
+    @app.get("/orders")
+    def web_orders():
+        user = current_user()
+        if not user:
+            flash("Please log in to view your orders.", "info")
+            return redirect(url_for("web_login"))
+        orders = Order.query.filter_by(user_id=user.id).order_by(Order.id.desc()).all()
+        return render_template("orders.html", orders=orders)
+
+    @app.get("/orders/<int:order_id>")
+    def web_order_detail(order_id: int):
+        user = current_user()
+        if not user:
+            flash("Please log in to view your order.", "info")
+            return redirect(url_for("web_login"))
+        order = Order.query.filter_by(id=order_id, user_id=user.id).first()
+        if not order:
+            return render_template("404.html"), 404
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        return render_template("order_detail.html", order=order, items=items)
 
     @app.get("/login")
     def web_login():

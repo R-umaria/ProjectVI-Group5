@@ -15,8 +15,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://boxed:boxed@db:5432/boxedwithlove
       SECRET_KEY: dev-secret-change-me
+      FLASK_ENV: development
+      FLASK_APP: app.py
+      FLASK_DEBUG: "1"
     ports:
       - "8080:8080"
+    volumes:
+      - .:/app
     depends_on:
       - db
 

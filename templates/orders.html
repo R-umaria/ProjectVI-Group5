@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}My Orders - BoxedWithLove{% endblock %}
+{% block content %}
+<div class="page">
+  <h1 class="h1">My Orders</h1>
+  {% if not orders %}
+    <p class="muted">You don’t have any orders yet.</p>
+    <a class="btn btn-primary" href="{{ url_for('web_products') }}">Shop Now →</a>
+  {% else %}
+    <div class="stack">
+      {% for o in orders %}
+        <a class="row" href="{{ url_for('web_order_detail', order_id=o.id) }}">
+          <div>
+            <div class="card-title">Order #{{ o.id }}</div>
+            <div class="muted small">Status: {{ o.status }}</div>
+          </div>
+          <div class="muted">{{ o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else '' }} →</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
