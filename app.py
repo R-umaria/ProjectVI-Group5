@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -17,6 +17,7 @@ from routes.catalog import bp as catalog_bp
 from routes.cart import bp as cart_bp
 from routes.orders import bp as orders_bp
 from routes.options import bp as options_bp
+from routes.payment_methods import bp as payment_methods_bp
 
 load_dotenv()
 
@@ -119,6 +120,90 @@ def create_app() -> Flask:
             return redirect(url_for("web_login"))
         return render_template("checkout.html")
 
+    @app.get("/payment-methods")
+    def web_payment_methods():
+        user = current_user()
+        if not user:
+            flash("Please log in to manage payment methods.", "info")
+            return redirect(url_for("web_login"))
+
+        methods = (
+            PaymentMethod.query.filter_by(user_id=user.id)
+            .order_by(PaymentMethod.is_default.desc(), PaymentMethod.id.desc())
+            .all()
+        )
+        return render_template("payment_methods.html", methods=methods)
+
+    @app.post("/payment-methods")
+    def web_payment_methods_post():
+        user = current_user()
+        if not user:
+            flash("Please log in to manage payment methods.", "info")
+            return redirect(url_for("web_login"))
+
+        def bad(msg: str):
+            flash(msg, "error")
+            return redirect(url_for("web_payment_methods"))
+
+        cardholder_name = (request.form.get("cardholder_name") or "").strip()
+        brand = (request.form.get("brand") or "").strip()
+        last4 = (request.form.get("last4") or "").strip()
+        exp_month_raw = (request.form.get("exp_month") or "").strip()
+        exp_year_raw = (request.form.get("exp_year") or "").strip()
+        billing_postal = (request.form.get("billing_postal") or "").strip() or None
+        want_default = bool(request.form.get("is_default"))
+
+        if not cardholder_name:
+            return bad("Cardholder name is required.")
+        if not brand:
+            return bad("Card brand is required.")
+        if len(last4) != 4 or not last4.isdigit():
+            return bad("Last 4 must be exactly 4 digits.")
+
+        try:
+            exp_month = int(exp_month_raw)
+        except Exception:
+            return bad("Exp month must be a number between 1 and 12.")
+        if exp_month < 1 or exp_month > 12:
+            return bad("Exp month must be between 1 and 12.")
+
+        try:
+            exp_year = int(exp_year_raw)
+        except Exception:
+            return bad("Exp year must be a 4-digit year.")
+        year_now = datetime.utcnow().year
+        if exp_year < year_now - 1 or exp_year > year_now + 25:
+            return bad("Exp year is out of allowed range.")
+
+        pm = PaymentMethod(
+            user_id=user.id,
+            cardholder_name=cardholder_name,
+            brand=brand,
+            last4=last4,
+            exp_month=exp_month,
+            exp_year=exp_year,
+            billing_postal=billing_postal,
+            is_default=want_default,
+        )
+        db.session.add(pm)
+        db.session.flush()
+
+        count_for_user = PaymentMethod.query.filter_by(user_id=user.id).count()
+        if count_for_user == 1:
+            want_default = True
+
+        if want_default:
+            PaymentMethod.query.filter(
+                PaymentMethod.user_id == user.id,
+                PaymentMethod.id != pm.id,
+                PaymentMethod.is_default.is_(True),
+            ).update({"is_default": False})
+            pm.is_default = True
+
+        db.session.commit()
+        flash("Payment method added.", "success")
+        return redirect(url_for("web_payment_methods"))
+
     @app.get("/orders")
     def web_orders():
         user = current_user()
@@ -194,6 +279,7 @@ def create_app() -> Flask:
     app.register_blueprint(cart_bp, url_prefix="/api")
     app.register_blueprint(orders_bp, url_prefix="/api")
     app.register_blueprint(options_bp, url_prefix="/api")
+    app.register_blueprint(payment_methods_bp, url_prefix="/api")
 
     # --- CLI commands (simple) ---
     @app.cli.command("init-db")

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Payment Methods - BoxedWithLove{% endblock %}
+{% block content %}
+<div class="page">
+  <h1 class="h1">Payment Methods</h1>
+  <p class="muted">Add a basic payment method so checkout can proceed.</p>
+
+  <div class="stack">
+    {% if methods %}
+      <div class="card">
+        <div class="card-title">Saved Methods</div>
+        <ul class="list">
+          {% for m in methods %}
+            <li>
+              <strong>{{ m.brand }}</strong> ending in {{ m.last4 }}
+              · Exp {{ "%02d"|format(m.exp_month) }}/{{ m.exp_year }}
+              {% if m.is_default %} · <span class="muted">Default</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <p class="muted">No payment methods yet.</p>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-title">Add Payment Method</div>
+      <form method="post" action="{{ url_for('web_payment_methods_post') }}" class="form">
+        <div class="grid">
+          <label>
+            <span>Cardholder Name</span>
+            <input name="cardholder_name" required>
+          </label>
+          <label>
+            <span>Brand (e.g., Visa)</span>
+            <input name="brand" required>
+          </label>
+          <label>
+            <span>Last 4</span>
+            <input name="last4" maxlength="4" pattern="[0-9]{4}" required>
+          </label>
+          <label>
+            <span>Exp Month</span>
+            <input name="exp_month" type="number" min="1" max="12" required>
+          </label>
+          <label>
+            <span>Exp Year</span>
+            <input name="exp_year" type="number" min="2020" max="2100" required>
+          </label>
+          <label>
+            <span>Billing Postal (optional)</span>
+            <input name="billing_postal">
+          </label>
+        </div>
+        <label class="checkbox">
+          <input type="checkbox" name="is_default" checked>
+          <span>Set as default</span>
+        </label>
+        <button class="btn btn-primary" type="submit">Add Payment Method</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

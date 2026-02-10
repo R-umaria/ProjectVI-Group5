@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Checkout</h1>
 <p class="muted">This is a minimal checkout. It will create an order from your cart.</p>
+<p class="muted">Need a payment method? <a href="{{ url_for('web_payment_methods') }}">Add one here.</a></p>
 <button class="btn" onclick="placeOrder()">Place order</button>
 <p id="order-msg" class="muted"></p>
 {% endblock %}
