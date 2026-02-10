@@ -37,9 +37,10 @@
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </summary>
-            <div class="menu" role="menu">
+              <div class="menu" role="menu">
               <div class="menu-name">{{ nav_user.email }}</div>
               <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
+              <a role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
               <div class="menu-sep"></div>
               <form method="post" action="{{ url_for('web_logout') }}">
                 <button class="menu-danger" type="submit">Sign Out</button>
