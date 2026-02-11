@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem, PaymentMethod
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Address 
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -249,23 +249,91 @@ def create_app() -> Flask:
     @app.get("/register")
     def web_register():
         return render_template("register.html")
+    
+    @app.get("/account")
+    def web_account():
+        user = current_user()
+        if not user:
+            return redirect(url_for("web_login"))
+        return render_template("account.html", user=user)
+    
+    @app.post("/account/address")
+    def web_add_address():
+        user = current_user()
+        if not user:
+            return redirect(url_for("web_login"))
 
-    @app.post("/register")
-    def web_register_post():
-        email = (request.form.get("email") or "").strip().lower()
-        password = request.form.get("password") or ""
-        if not email or not password:
-            flash("Email and password are required.", "error")
-            return redirect(url_for("web_register"))
-        if User.query.filter_by(email=email).first():
-            flash("Email already registered.", "error")
-            return redirect(url_for("web_register"))
-        user = User(email=email, password_hash=generate_password_hash(password))
-        db.session.add(user)
+        address_id = request.form.get("address_id")
+
+        label = (request.form.get("label") or "").strip() or None
+        street_address = (request.form.get("street_address") or "").strip()
+        postal_code = (request.form.get("postal_code") or "").strip()
+        country = (request.form.get("country") or "").strip()
+
+        if not street_address or not postal_code or not country:
+            flash("All address fields except label are required.", "error")
+            return redirect(url_for("web_account"))
+
+        if address_id:
+            address = Address.query.filter_by(id=address_id, user_id=user.id).first()
+            if not address:
+                flash("Address not found.", "error")
+                return redirect(url_for("web_account"))
+
+            address.label = label
+            address.street_address = street_address
+            address.postal_code = postal_code
+            address.country = country
+
+            flash("Address updated successfully.", "success")
+
+        else:
+            new_address = Address(
+                user_id=user.id,
+                label=label,
+                street_address=street_address,
+                postal_code=postal_code,
+                country=country
+            )
+            db.session.add(new_address)
+            flash("Address added successfully.", "success")
+
         db.session.commit()
-        session["user_id"] = user.id
-        flash("Account created.", "success")
-        return redirect(url_for("web_products"))
+        return redirect(url_for("web_account"))
+    
+    @app.post("/account/address/<int:address_id>/delete")
+    def web_delete_address(address_id):
+        user = current_user()
+        if not user:
+            return redirect(url_for("web_login"))
+
+        address = Address.query.filter_by(id=address_id, user_id=user.id).first()
+
+        if not address:
+            flash("Address not found.", "error")
+            return redirect(url_for("web_account"))
+
+        db.session.delete(address)
+        db.session.commit()
+
+        flash("Address deleted successfully.", "success")
+        return redirect(url_for("web_account"))
+    
+    @app.post("/account/phone")
+    def web_update_phone():
+        user = current_user()
+        if not user:
+            return redirect(url_for("web_login"))
+        country_code = (request.form.get("country_code") or "").strip()
+        phone_number = (request.form.get("phone_number") or "").strip()
+        if not phone_number:
+            user.phone_number = None
+        else:
+            clean_number = phone_number.replace(" ", "")
+            user.phone_number = f"{country_code}{clean_number}"
+        db.session.commit()
+        flash("Phone number updated.", "success")
+        return redirect(url_for("web_account"))
 
     @app.post("/logout")
     def web_logout():
