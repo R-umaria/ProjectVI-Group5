@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem, PaymentMethod
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Category
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -293,116 +293,118 @@ def create_app() -> Flask:
         print("DB initialized (tables created).")
 
     @app.cli.command("seed")
-def seed_cmd():
-    """Seed database with products (CSV if present, otherwise minimal demo data)."""
-    with app.app_context():
-        db.create_all()
+    def seed_cmd():
+        """Seed database with products (CSV if present, otherwise minimal demo data)."""
+        with app.app_context():
+            db.create_all()
 
-        # Prevent accidental duplication
-        if Product.query.count() > 0:
-            print("Products already exist. Reset DB (docker compose down -v) to reseed.")
-            return
+            # Prevent accidental duplication
+            if Product.query.count() > 0:
+                print("Products already exist. Reset DB (docker compose down -v) to reseed.")
+                return
 
-        csv_path = Path(app.root_path).parent / "products.csv"  # repo root
-        images_dir = Path(app.root_path) / "static" / "images"
+            csv_path = Path(app.root_path).parent / "products.csv"  # repo root
+            images_dir = Path(app.root_path) / "static" / "images"
 
-        def parse_price_cents(raw: str) -> int:
-            raw = (raw or "").strip()
-            if not raw:
-                return 0
-            if "." in raw:
-                return int(round(float(raw) * 100))
-            return int(raw)
+            def parse_price_cents(raw: str) -> int:
+                raw = (raw or "").strip()
+                if not raw:
+                    return 0
+                if "." in raw:
+                    return int(round(float(raw) * 100))
+                return int(raw)
 
-        def slug_sku(name: str, used: set[str]) -> str:
-            base = re.sub(r"[^A-Za-z0-9]+", "", (name or "").upper())[:10] or "ITEM"
-            sku = f"BWL-{base}"
-            i = 2
-            while sku in used:
-                sku = f"BWL-{base}-{i}"
-                i += 1
-            used.add(sku)
-            return sku
+            def slug_sku(name: str, used: set[str]) -> str:
+                base = re.sub(r"[^A-Za-z0-9]+", "", (name or "").upper())[:10] or "ITEM"
+                sku = f"BWL-{base}"
+                i = 2
+                while sku in used:
+                    sku = f"BWL-{base}-{i}"
+                    i += 1
+                used.add(sku)
+                return sku
 
-        def resolve_image_url(product_name: str, image_field: str | None) -> str | None:
-            image_field = (image_field or "").strip()
+            def resolve_image_url(product_name: str, image_field: str | None) -> str | None:
+                image_field = (image_field or "").strip()
 
-            # If someone later puts a real URL in the CSV, accept it
-            if image_field.startswith("http://") or image_field.startswith("https://"):
-                return image_field
+                # If someone later puts a real URL in the CSV, accept it
+                if image_field.startswith("http://") or image_field.startswith("https://"):
+                    return image_field
 
-            # If CSV contains a real filename like Basket01.jpg, use it (if exists)
-            if image_field and "." in image_field:
-                p = images_dir / image_field
-                if p.exists():
-                    return f"/static/images/{p.name}"
+                # If CSV contains a real filename like Basket01.jpg, use it (if exists)
+                if image_field and "." in image_field:
+                    p = images_dir / image_field
+                    if p.exists():
+                        return f"/static/images/{p.name}"
 
-            # Auto-match: ProductName + common extensions
-            base = (product_name or "").strip()
-            candidates = []
-            for ext in (".jpg", ".jpeg", ".png", ".webp"):
-                candidates.append(base + ext)
-                candidates.append(base.lower() + ext)
-                candidates.append(base.upper() + ext)
+                # Auto-match: ProductName + common extensions
+                base = (product_name or "").strip()
+                candidates = []
+                for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    candidates.append(base + ext)
+                    candidates.append(base.lower() + ext)
+                    candidates.append(base.upper() + ext)
 
-            for c in candidates:
-                p = images_dir / c
-                if p.exists():
-                    return f"/static/images/{p.name}"
+                for c in candidates:
+                    p = images_dir / c
+                    if p.exists():
+                        return f"/static/images/{p.name}"
 
-            return None  # ok; UI will show placeholder
+                return None  # ok; UI will show placeholder
 
-        # Create categories lazily
-        categories_by_name: dict[str, Category] = {}
+            # Create categories lazily
+            categories_by_name: dict[str, Category] = {}
 
-        used_skus: set[str] = set()
+            used_skus: set[str] = set()
 
-        if csv_path.exists():
-            print(f"Seeding from CSV: {csv_path}")
-            with open(csv_path, newline="", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
+            if csv_path.exists():
+                print(f"Seeding from CSV: {csv_path}")
+                with open(csv_path, newline="", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
 
-                for row in reader:
-                    name = (row.get("ProductName") or "").strip()
-                    if not name:
-                        continue
+                    for row in reader:
+                        name = (row.get("ProductName") or "").strip()
+                        if not name:
+                            continue
 
-                    category_name = (row.get("Category") or "").strip() or "General"
-                    if category_name not in categories_by_name:
-                        cat = Category(name=category_name)
-                        db.session.add(cat)
-                        categories_by_name[category_name] = cat
+                        category_name = (row.get("Category") or "").strip() or "General"
+                        if category_name not in categories_by_name:
+                            cat = Category(category_name=category_name)
+                            db.session.add(cat)
+                            categories_by_name[category_name] = cat
 
-                    price_cents = parse_price_cents(row.get("ProductPrice"))
-                    desc = (row.get("Description") or "").strip()
-                    image_url = resolve_image_url(name, row.get("Image_URL"))
+                        price_cents = parse_price_cents(row.get("ProductPrice"))
+                        desc = (row.get("Description") or "").strip()
+                        image_url = resolve_image_url(name, row.get("Image_URL"))
 
-                    p = Product(
-                        sku=slug_sku(name, used_skus),
-                        name=name,
-                        description=desc,
-                        price_cents=price_cents,
-                        image_url=image_url,
-                        category=categories_by_name[category_name],
-                        stock=50,
-                        is_available=True,
-                    )
-                    db.session.add(p)
+                        p = Product(
+                            sku=slug_sku(name, used_skus),
+                            name=name,
+                            description=desc,
+                            price_cents=price_cents,
+                            image_url=image_url,
+                            category=categories_by_name[category_name],
+                            stock=50,
+                            is_available=True,
+                        )
+                        db.session.add(p)
 
+                db.session.commit()
+                print(f"Seeded {Product.query.count()} products.")
+                return
+
+            # Fallback minimal seed if CSV missing
+            print("products.csv not found, seeding minimal demo products.")
+            cat = Category(category_name="General")
+            db.session.add(cat)
+            db.session.add_all([
+                Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url="", category=cat, stock=25, is_available=True),
+                Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url="", category=cat, stock=18, is_available=True),
+                Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url="", category=cat, stock=30, is_available=True),
+            ])
             db.session.commit()
-            print(f"Seeded {Product.query.count()} products.")
-            return
 
-        # Fallback minimal seed if CSV missing
-        print("products.csv not found, seeding minimal demo products.")
-        cat = Category(name="General")
-        db.session.add(cat)
-        db.session.add_all([
-            Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url="", category=cat, stock=25, is_available=True),
-            Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url="", category=cat, stock=18, is_available=True),
-            Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url="", category=cat, stock=30, is_available=True),
-        ])
-        db.session.commit()
+    return app
 
 # merges the session cart into users database cart when they log in or register, 
 # so that non logged in users can still make a cart and it will sync to their account upon login/register
