@@ -5,7 +5,33 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
 
-<main id="productDetail" data-product-id="{{ product_id }}" class="container mx-auto px-4 py-10 max-w-6xl">
+<script>
+  // reuse cart theme (beige + serif)
+  document.body.classList.add('cart-page');
+</script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: '#f5f3f0',
+          foreground: '#3d3d3d',
+          card: '#ffffff',
+          primary: '#8b4513',
+          muted: '#f5f3f0',
+          border: '#e0ddd8',
+        },
+        fontFamily: {
+          serif: ['Georgia', 'Playfair Display', 'serif'],
+        }
+      }
+    }
+  }
+</script>
+
+<div id="productDetail" data-product-id="{{ product_id }}" class="mx-auto px-4 py-10 max-w-6xl">
+
   <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
 
     <!-- LEFT: product image -->
@@ -23,13 +49,14 @@
         <div class="text-sm text-[#777]" id="pdRatingText"></div>
       </div>
 
-      <p class="mt-5 text-[#3d3d3d] leading-relaxed" id="pdDesc"></p>
+      <p class="mt-5 text-[#3d3d3d]" id="pdDesc"></p>
 
       <div class="mt-6 flex gap-3">
-        <button class="bg-[#8b4513] text-white px-6 py-3 rounded-lg">
+        <button id="addToCartBtn" class="bg-[#8b4513] text-white px-6 py-3 rounded-lg">
           Add to Cart
         </button>
-        <a href="/products" class="px-6 py-3 rounded-lg border border-[#e0ddd8] bg-white">
+        <a href="/products"
+           class="px-6 py-3 rounded-lg border border-[#e0ddd8] bg-white">
           Back to products
         </a>
       </div>
@@ -38,22 +65,35 @@
 
   <!-- REVIEWS -->
   <section class="mt-14">
-    <h2 class="text-2xl font-serif text-[#3d3d3d] mb-4">Customer Reviews</h2>
-
-    <!-- you can later connect this form to POST /api/reviews -->
-    <div class="bg-white border border-[#e0ddd8] rounded-lg p-5 mb-6">
-      <div class="text-[#777] mb-2">Write a Review</div>
-      <textarea class="w-full border border-[#e0ddd8] rounded-lg p-3" rows="4"
-        placeholder="Share your experience with this product..."></textarea>
-      <div class="mt-3 flex justify-between items-center">
-        <div class="text-sm text-[#777]">Log in to submit a review.</div>
-        <button class="bg-[#8b4513] text-white px-5 py-2 rounded-lg">Submit Review</button>
-      </div>
-    </div>
-
+    <h2 class="text-2xl font-serif text-[#3d3d3d] mb-4">
+      Customer Reviews
+    </h2>
     <div id="reviewsList" class="space-y-4"></div>
-  </section>
-</main>
+      <div class="bg-white border border-[#e0ddd8] rounded-lg p-5 mt-6">
+  <div class="text-[#777] mb-2">Write a Review</div>
 
-<script src="{{ url_for('static', filename='js/product_detail.js') }}"></script>
+  <select id="reviewRating" class="border border-[#e0ddd8] rounded-lg px-3 py-2 mb-3">
+    <option value="">Select rating</option>
+    <option value="5">★★★★★ (5)</option>
+    <option value="4">★★★★☆ (4)</option>
+    <option value="3">★★★☆☆ (3)</option>
+    <option value="2">★★☆☆☆ (2)</option>
+    <option value="1">★☆☆☆☆ (1)</option>
+  </select>
+
+  <textarea id="reviewComment"
+    class="w-full border border-[#e0ddd8] rounded-lg p-3"
+    rows="4"
+    placeholder="Share your experience with this product..."></textarea>
+
+  <div class="mt-3 flex justify-end">
+    <button id="submitReviewBtn" class="bg-[#8b4513] text-white px-5 py-2 rounded-lg">
+      Submit Review
+    </button>
+  </div>
+</div>
+  </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/product_details.js') }}" defer></script>
 {% endblock %}

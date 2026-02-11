@@ -1,9 +1,6 @@
 from datetime import datetime
 from db import db
 
-from flask_sqlalchemy import SQLAlchemy
-db = SQLAlchemy()
-
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -44,7 +41,7 @@ class OrderItem(db.Model):
     order = db.relationship("Order", lazy="joined")
     product = db.relationship("Product", lazy="joined")
 
-    class Category(db.Model):
+class Category(db.Model):
     __tablename__ = "categories"
 
     id = db.Column(db.Integer, primary_key=True)

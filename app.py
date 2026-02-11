@@ -52,9 +52,8 @@ def create_app() -> Flask:
         return render_template("products.html", products=products)
 
     @app.get("/products/<int:product_id>")
-    def web_product_detail(product_id: int):
-        product = Product.query.get_or_404(product_id)
-        return render_template("product_detail.html", product=product)
+    def product_detail(product_id):
+        return render_template("product_detail.html", product_id=product_id)
 
     @app.get("/cart")
     def web_cart():

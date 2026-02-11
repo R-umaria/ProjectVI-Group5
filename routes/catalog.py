@@ -1,9 +1,12 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify, session
 from sqlalchemy import or_, func
 
 from models import Product, Category, Review
 from helpers import error
 from config import Config
+
+from db import db
+from datetime import date
 
 bp = Blueprint("catalog_api", __name__)
 
@@ -118,3 +121,29 @@ def product_detail(product_id: int):
             for r in reviews
         ],
     }, 200
+
+@bp.post("/products/<int:product_id>/reviews")
+def add_review(product_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Login required"}), 401
+
+    data = request.get_json() or {}
+
+    rating = data.get("rating")
+    comment = data.get("comment", "").strip()
+
+    if not rating or not (1 <= int(rating) <= 5):
+        return jsonify({"error": "Rating must be 1–5"}), 400
+
+    review = Review(
+        customer_id=session["user_id"],
+        product_id=product_id,
+        rating=int(rating),
+        comment=comment,
+        review_date=date.today()
+    )
+
+    db.session.add(review)
+    db.session.commit()
+
+    return jsonify({"success": True}), 201
