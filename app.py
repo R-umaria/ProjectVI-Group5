@@ -302,9 +302,8 @@ def create_app() -> Flask:
             if Product.query.count() > 0:
                 print("Products already exist. Reset DB (docker compose down -v) to reseed.")
                 return
-
-            csv_path = Path(app.root_path).parent / "products.csv"  # repo root
-            images_dir = Path(app.root_path) / "static" / "images"
+            csv_path = Path(__file__).resolve().parent / "products.csv"
+            images_dir = Path(__file__).resolve().parent / "static" / "images"
 
             def parse_price_cents(raw: str) -> int:
                 raw = (raw or "").strip()
