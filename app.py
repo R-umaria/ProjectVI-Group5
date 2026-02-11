@@ -86,12 +86,10 @@ def create_app() -> Flask:
     @app.get("/products")
     def web_products():
         search = (request.args.get("search") or "").strip()
-        category = (request.args.get("category") or "").strip().lower()
+        category = (request.args.get("category") or "").strip()
+        sort = (request.args.get("sort") or "popular").strip()
 
         q = Product.query
-        # If category is provided but no search, treat category as a search hint.
-        if category and not search:
-            search = category
 
         if search:
             like = f"%{search}%"
@@ -103,13 +101,83 @@ def create_app() -> Flask:
                 )
             )
 
-        products = q.order_by(Product.id.asc()).limit(24).all()
-        return render_template("products.html", products=products, search=search, category=category)
+        if category:
+            q = q.join(Category).filter(db.func.lower(Category.category_name) == category.lower())
+
+        if sort == "price_asc":
+            q = q.order_by(Product.price_cents.asc(), Product.id.asc())
+        elif sort == "price_desc":
+            q = q.order_by(Product.price_cents.desc(), Product.id.asc())
+        elif sort == "newest":
+            q = q.order_by(Product.created_at.desc(), Product.id.desc())
+        else:
+            q = q.order_by(Product.id.asc())
+
+        products = q.limit(24).all()
+        categories = Category.query.order_by(Category.category_name.asc()).all()
+
+        return render_template(
+            "products.html",
+            products=products,
+            categories=categories,
+            search=search,
+            category=category,
+            sort=sort,
+        )
 
     @app.get("/products/<int:product_id>")
     def web_product_detail(product_id: int):
         product = Product.query.get_or_404(product_id)
-        return render_template("product_detail.html", product=product)
+
+        reviews = (
+            Review.query.filter(Review.product_id == product_id)
+            .order_by(Review.review_date.desc(), Review.id.desc())
+            .all()
+        )
+
+        avg_rating = (
+            db.session.query(db.func.avg(Review.rating))
+            .filter(Review.product_id == product_id)
+            .scalar()
+        )
+        avg_rating = float(avg_rating) if avg_rating is not None else 0.0
+
+        return render_template(
+            "product_detail.html",
+            product=product,
+            reviews=reviews,
+            avg_rating=avg_rating,
+        )
+
+    @app.post("/products/<int:product_id>/reviews")
+    def web_post_review(product_id: int):
+        user = current_user()
+        if not user:
+            flash("Please log in to leave a review.", "info")
+            return redirect(url_for("web_login"))
+
+        product = Product.query.get(product_id)
+        if not product:
+            return render_template("404.html"), 404
+
+        rating_raw = (request.form.get("rating") or "").strip()
+        comment = (request.form.get("comment") or "").strip() or None
+
+        try:
+            rating = int(rating_raw)
+        except Exception:
+            rating = 0
+
+        if rating < 1 or rating > 5:
+            flash("Rating must be between 1 and 5.", "error")
+            return redirect(url_for("web_product_detail", product_id=product_id))
+
+        r = Review(user_id=user.id, product_id=product_id, rating=rating, comment=comment)
+        db.session.add(r)
+        db.session.commit()
+
+        flash("Thanks! Your review was submitted.", "success")
+        return redirect(url_for("web_product_detail", product_id=product_id))
 
     @app.get("/cart")
     def web_cart():
@@ -303,7 +371,8 @@ def create_app() -> Flask:
                 print("Products already exist. Reset DB (docker compose down -v) to reseed.")
                 return
             csv_path = Path(__file__).resolve().parent / "products.csv"
-            images_dir = Path(__file__).resolve().parent / "static" / "images"
+            # Product images live under static/images/products/
+            images_dir = Path(__file__).resolve().parent / "static" / "images" / "products"
 
             def parse_price_cents(raw: str) -> int:
                 raw = (raw or "").strip()
@@ -334,7 +403,22 @@ def create_app() -> Flask:
                 if image_field and "." in image_field:
                     p = images_dir / image_field
                     if p.exists():
-                        return f"/static/images/{p.name}"
+                        return f"/static/images/products/{p.name}"
+
+                # Fast path: build a case-insensitive stem->filename map once
+                # (handles .jpg/.png/.webp and any casing)
+                if not hasattr(resolve_image_url, "_stem_map"):
+                    stem_map = {}
+                    if images_dir.exists():
+                        for fp in images_dir.iterdir():
+                            if fp.is_file():
+                                stem_map[fp.stem.lower()] = fp.name
+                    setattr(resolve_image_url, "_stem_map", stem_map)
+
+                stem_map = getattr(resolve_image_url, "_stem_map")
+                hit = stem_map.get((product_name or "").strip().lower())
+                if hit:
+                    return f"/static/images/products/{hit}"
 
                 # Auto-match: ProductName + common extensions
                 base = (product_name or "").strip()
@@ -347,7 +431,7 @@ def create_app() -> Flask:
                 for c in candidates:
                     p = images_dir / c
                     if p.exists():
-                        return f"/static/images/{p.name}"
+                        return f"/static/images/products/{p.name}"
 
                 return None  # ok; UI will show placeholder
 

@@ -1,89 +1,82 @@
 {% extends "base.html" %}
-{% block title %}Shop All - BoxedWithLove{% endblock %}
+{% block title %}Shop - BoxedWithLove{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
-<script>
-  // reuse cart theme (beige + serif)
-  document.body.classList.add('cart-page');
-</script>
-
-<!-- same TEMP tailwind theme config style as cart.html -->
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          background: '#f5f3f0',
-          foreground: '#3d3d3d',
-          card: '#ffffff',
-          'card-foreground': '#3d3d3d',
-          primary: '#8b4513',
-          'primary-foreground': '#ffffff',
-          muted: '#f5f3f0',
-          'muted-foreground': '#999999',
-          accent: '#8b6f47',
-          'accent-foreground': '#ffffff',
-          destructive: '#d9534f',
-          'destructive-foreground': '#ffffff',
-          border: '#e0ddd8',
-        },
-        fontFamily: {
-          sans: ['DM Sans', 'sans-serif'],
-          serif: ['Georgia', 'Playfair Display', 'serif'],
-        }
-      }
-    }
-  }
-</script>
-
-<main class="container mx-auto px-4 py-10 max-w-7xl">
-  <h2 class="text-5xl font-serif text-foreground mb-2">Shop All</h2>
-  <p class="text-muted-foreground mb-8">
-    <span id="resultsCount">0</span> product found
-  </p>
-
-  <!-- Filters row (matches screenshot layout: search + dropdowns + clear) -->
-  <div class="flex flex-col md:flex-row md:items-center gap-4 mb-10">
-    <div class="flex-1">
-      <div class="flex items-center bg-card border border-border rounded-lg px-3 py-2">
-        <svg class="w-5 h-5 text-muted-foreground mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
-        </svg>
-        <input id="q" class="w-full bg-transparent outline-none text-foreground"
-               placeholder="Search gift baskets..." />
-      </div>
-    </div>
-
-    <div class="flex gap-3">
-      <select id="category" class="bg-card border border-border rounded-lg px-3 py-2 text-foreground">
-        <option value="">All Categories</option>
-        <option value="Basket">Baskets</option>
-        <option value="Book">Books</option>
-        <option value="Box">Boxes</option>
-        <option value="Food">Food</option>
-        <option value="Candle">Candles</option>
-        <option value="Flower">Flowers</option>
-      </select>
-
-      <select id="sort" class="bg-card border border-border rounded-lg px-3 py-2 text-foreground">
-        <option value="popular">Most Popular</option>
-        <option value="newest">Newest</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
-      </select>
-
-      <button id="clearBtn"
-        class="inline-flex items-center gap-2 text-foreground hover:text-primary transition-colors">
-        ✕ <span>Clear</span>
-      </button>
-    </div>
+<section class="page">
+  <div class="page-row">
+    <h1 class="h1">Shop All</h1>
+    <a class="btn btn-secondary" href="{{ url_for('web_products') }}">Clear</a>
   </div>
 
-  <!-- Product grid -->
-  <section id="grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"></section>
-</main>
+  <form class="filters" method="get" action="{{ url_for('web_products') }}">
+    <div class="filters-left">
+      <label class="field">
+        <span class="field-label">Search</span>
+        <input class="input" name="search" type="search" placeholder="Search gift baskets..." value="{{ search }}" />
+      </label>
+    </div>
 
-<script src="{{ url_for('static', filename='js/product.js') }}" defer></script>
+    <div class="filters-right">
+      <label class="field">
+        <span class="field-label">Category</span>
+        <select class="select" name="category">
+          <option value="">All</option>
+          {% for c in categories %}
+            <option value="{{ c.category_name }}" {% if category and category.lower() == c.category_name.lower() %}selected{% endif %}>{{ c.category_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
 
+      <label class="field">
+        <span class="field-label">Sort</span>
+        <select class="select" name="sort">
+          <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most Popular</option>
+          <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+          <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+          <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+        </select>
+      </label>
+
+      <button class="btn btn-primary btn-lg" type="submit">Apply</button>
+    </div>
+  </form>
+
+  <p id="add-msg" class="muted" aria-live="polite"></p>
+
+  <div class="grid products-grid">
+    {% for p in products %}
+      <article class="card product-card">
+        <a class="product-img" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+          {% if p.image_url %}
+            <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
+          {% else %}
+            <div class="product-placeholder" aria-hidden="true">🎁</div>
+          {% endif %}
+        </a>
+
+        <div class="product-body">
+          <div class="product-meta">
+            {% if p.category %}
+              <span class="chip">{{ p.category.category_name }}</span>
+            {% endif %}
+            {% if not p.is_available or p.stock <= 0 %}
+              <span class="chip chip-danger">Out of stock</span>
+            {% endif %}
+          </div>
+
+          <a class="product-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
+          <div class="product-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
+          <p class="muted small clamp-3">{{ p.description }}</p>
+
+          <div class="product-actions">
+            <a class="btn btn-outline" href="{{ url_for('web_product_detail', product_id=p.id) }}">View</a>
+            <button class="btn btn-primary" type="button" onclick="addToCart({{ p.id }})" {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}>
+              Add to cart
+            </button>
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
 {% endblock %}
