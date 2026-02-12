@@ -1,0 +1,183 @@
+{% extends "base_checkout.html" %}
+
+{% block title %}Checkout – Review | BoxedWithLove{% endblock %}
+
+{% block content %}
+{% set active = 'review' %}
+
+<!-- Stepper -->
+<div class="mb-8">
+  <div class="flex items-center justify-center gap-4">
+    {% set steps = [
+      {'key':'shipping','label':'Shipping','n':1},
+      {'key':'payment','label':'Payment','n':2},
+      {'key':'review','label':'Review','n':3}
+    ] %}
+    {% for s in steps %}
+      {% set is_active = active == s.key %}
+      {% set is_past = (active == 'payment' and s.key == 'shipping') or (active == 'review' and (s.key == 'shipping' or s.key == 'payment')) %}
+      <div class="flex items-center">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+            {% if is_active %} bg-primary text-primary-foreground
+            {% elif is_past %} bg-primary/20 text-primary
+            {% else %} bg-secondary text-muted
+            {% endif %}">
+            {% if is_past %}
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            {% else %}
+              {{ s.n }}
+            {% endif %}
+          </div>
+          <span class="text-sm font-medium {% if is_active %}text-foreground{% else %}text-muted{% endif %}">
+            {{ s.label }}
+          </span>
+        </div>
+        {% if not loop.last %}
+          <div class="w-16 h-px mx-4 {% if is_past %}bg-primary/30{% else %}bg-border{% endif %}"></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-8 items-start">
+  <!-- Left: Review details -->
+  <div class="lg:col-span-2 space-y-6">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold">Shipping Address</h2>
+            <div class="mt-3 text-sm text-foreground/90 space-y-1">
+              <div>{{ shipping.first_name }} {{ shipping.last_name }}</div>
+              <div>{{ shipping.address }}</div>
+              <div>{{ shipping.city }}, {{ shipping.state }} {{ shipping.zip_code }}</div>
+              <div>{{ shipping.phone }}</div>
+            </div>
+          </div>
+          <a href="{{ url_for('checkout_shipping') }}" class="text-sm font-medium text-foreground/70 hover:text-foreground">Edit</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold">Payment Method</h2>
+            <div class="mt-3 text-sm text-foreground/90">
+              {{ payment_method.brand }} ending in {{ payment_method.last4 }}
+            </div>
+          </div>
+          <a href="{{ url_for('checkout_payment') }}" class="text-sm font-medium text-foreground/70 hover:text-foreground">Edit</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <h2 class="text-base font-semibold mb-4">Order Items ({{ items|length }})</h2>
+        <div class="space-y-4">
+          {% for i in items %}
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-secondary/50 flex items-center justify-center overflow-hidden">
+                  {% if i.image_url %}
+                    <img src="{{ i.image_url }}" alt="" class="w-full h-full object-cover" />
+                  {% else %}
+                    <span aria-hidden="true">🎁</span>
+                  {% endif %}
+                </div>
+                <div>
+                  <div class="text-sm font-medium">{{ i.name }}</div>
+                  <div class="text-sm text-muted">Qty: {{ i.quantity }}</div>
+                </div>
+              </div>
+              <div class="text-sm font-medium">${{ "%.2f"|format(i.line_total_cents/100) }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <button id="placeOrderBtn" class="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-95">
+        Place Order – ${{ "%.2f"|format(summary.total_cents/100) }}
+      </button>
+      <p class="mt-2 text-sm text-muted" id="placeOrderMsg" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- Right: Order Summary -->
+  <div class="lg:col-span-1">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+
+        <div class="space-y-3 mb-4">
+          {% for i in items %}
+            <div class="flex items-start justify-between text-sm">
+              <div class="text-foreground/90">{{ i.name }} x{{ i.quantity }}</div>
+              <div class="text-foreground/90">${{ "%.2f"|format(i.line_total_cents/100) }}</div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="border-t border-border pt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Subtotal</span><span>${{ "%.2f"|format(summary.subtotal_cents/100) }}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Shipping</span><span>{% if summary.shipping_cents == 0 %}Free{% else %}${{ "%.2f"|format(summary.shipping_cents/100) }}{% endif %}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Tax</span><span>${{ "%.2f"|format(summary.tax_cents/100) }}</span></div>
+          <div class="border-t border-border pt-3 flex justify-between font-semibold">
+            <span>Total</span><span>${{ "%.2f"|format(summary.total_cents/100) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const btn = document.getElementById('placeOrderBtn');
+    const msg = document.getElementById('placeOrderMsg');
+
+    async function placeOrder() {
+      msg.textContent = '';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ payment_method_id: {{ payment_method.id }} })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          msg.textContent = data?.error?.message || 'Failed to place order.';
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          return;
+        }
+        const orderId = data?.order?.id;
+        if (orderId) {
+          window.location.href = `/orders/${orderId}`;
+          return;
+        }
+        msg.textContent = 'Order placed, but could not redirect to order details.';
+      } catch (e) {
+        msg.textContent = 'Network error while placing order.';
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    }
+
+    btn?.addEventListener('click', placeOrder);
+  })();
+</script>
+
+{% endblock %}

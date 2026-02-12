@@ -118,7 +118,194 @@ def create_app() -> Flask:
         if not user:
             flash("Please log in to checkout.", "info")
             return redirect(url_for("web_login"))
-        return render_template("checkout.html")
+        # Checkout is a 3-step flow: shipping -> payment -> review
+        return redirect(url_for("checkout_shipping"))
+
+    # --- Checkout flow (Module 4) ---
+    CHECKOUT_TAX_RATE = 0.13
+
+    def _cart_snapshot_for_user(user_id: int):
+        """Return (items, summary) for the current user's cart."""
+        items = CartItem.query.filter_by(user_id=user_id).all()
+        view_items = []
+        for ci in items:
+            p = ci.product
+            if not p:
+                continue
+            view_items.append(
+                {
+                    "product_id": p.id,
+                    "name": p.name,
+                    "image_url": p.image_url,
+                    "unit_price_cents": p.price_cents,
+                    "quantity": ci.quantity,
+                    "line_total_cents": p.price_cents * ci.quantity,
+                }
+            )
+
+        subtotal = sum(i["line_total_cents"] for i in view_items)
+        tax = int(subtotal * CHECKOUT_TAX_RATE)
+        shipping = 0
+        total = subtotal + tax + shipping
+        summary = {
+            "subtotal_cents": subtotal,
+            "tax_cents": tax,
+            "shipping_cents": shipping,
+            "total_cents": total,
+        }
+        return view_items, summary
+
+    @app.get("/checkout/shipping")
+    def checkout_shipping():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        shipping = session.get("checkout_shipping") or {}
+        return render_template(
+            "checkout_shipping.html",
+            items=items,
+            summary=summary,
+            shipping=shipping,
+        )
+
+    @app.post("/checkout/shipping")
+    def checkout_shipping_post():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        # Basic validation (keep MVP simple)
+        def get(name: str) -> str:
+            return (request.form.get(name) or "").strip()
+
+        shipping = {
+            "first_name": get("first_name"),
+            "last_name": get("last_name"),
+            "address": get("address"),
+            "city": get("city"),
+            "state": get("state"),
+            "zip_code": get("zip_code"),
+            "phone": get("phone"),
+        }
+
+        required = ["first_name", "last_name", "address", "city", "state", "zip_code", "phone"]
+        missing = [k for k in required if not shipping.get(k)]
+        if missing:
+            flash("Please fill in all shipping fields.", "error")
+            session["checkout_shipping"] = shipping
+            return redirect(url_for("checkout_shipping"))
+
+        session["checkout_shipping"] = shipping
+        return redirect(url_for("checkout_payment"))
+
+    @app.get("/checkout/payment")
+    def checkout_payment():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        if not session.get("checkout_shipping"):
+            return redirect(url_for("checkout_shipping"))
+
+        methods = (
+            PaymentMethod.query.filter_by(user_id=user.id)
+            .order_by(PaymentMethod.is_default.desc(), PaymentMethod.id.desc())
+            .all()
+        )
+
+        selected_id = session.get("checkout_payment_method_id")
+        if selected_id and not any(m.id == selected_id for m in methods):
+            selected_id = None
+
+        if not selected_id:
+            default = next((m for m in methods if m.is_default), None)
+            if default:
+                selected_id = default.id
+
+        return render_template(
+            "checkout_payment.html",
+            items=items,
+            summary=summary,
+            methods=methods,
+            selected_id=selected_id,
+            user=user,
+        )
+
+    @app.post("/checkout/payment")
+    def checkout_payment_post():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        if not session.get("checkout_shipping"):
+            return redirect(url_for("checkout_shipping"))
+
+        raw = (request.form.get("payment_method_id") or "").strip()
+        try:
+            payment_method_id = int(raw)
+        except Exception:
+            payment_method_id = None
+
+        if not payment_method_id:
+            flash("Please select a payment method.", "error")
+            return redirect(url_for("checkout_payment"))
+
+        pm = PaymentMethod.query.filter_by(id=payment_method_id, user_id=user.id).first()
+        if not pm:
+            flash("Selected payment method not found.", "error")
+            return redirect(url_for("checkout_payment"))
+
+        session["checkout_payment_method_id"] = pm.id
+        return redirect(url_for("checkout_review"))
+
+    @app.get("/checkout/review")
+    def checkout_review():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        shipping = session.get("checkout_shipping")
+        if not shipping:
+            return redirect(url_for("checkout_shipping"))
+
+        payment_method_id = session.get("checkout_payment_method_id")
+        if not payment_method_id:
+            return redirect(url_for("checkout_payment"))
+
+        pm = PaymentMethod.query.filter_by(id=payment_method_id, user_id=user.id).first()
+        if not pm:
+            session.pop("checkout_payment_method_id", None)
+            return redirect(url_for("checkout_payment"))
+
+        return render_template(
+            "checkout_review.html",
+            items=items,
+            summary=summary,
+            shipping=shipping,
+            payment_method=pm,
+            user=user,
+        )
 
     @app.get("/payment-methods")
     def web_payment_methods():
@@ -244,6 +431,10 @@ def create_app() -> Flask:
         session_cart_to_user(user.id) 
 
         flash("Logged in.", "success")
+        # Support redirect back to checkout/cart flows.
+        redirect_to = (request.args.get("redirect") or request.args.get("next") or request.form.get("redirect") or "").strip()
+        if redirect_to.startswith("/") and not redirect_to.startswith("//"):
+            return redirect(redirect_to)
         return redirect(url_for("web_products"))
 
     @app.get("/register")
@@ -338,6 +529,8 @@ def create_app() -> Flask:
     @app.post("/logout")
     def web_logout():
         session.pop("user_id", None)
+        session.pop("checkout_shipping", None)
+        session.pop("checkout_payment_method_id", None)
         flash("Logged out.", "success")
         return redirect(url_for("web_products"))
 
