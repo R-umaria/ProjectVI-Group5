@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from db import db
 
 
@@ -80,15 +80,17 @@ class OrderItem(db.Model):
 class Review(db.Model):
     __tablename__ = "reviews"
 
-    id = db.Column(db.BigInteger, primary_key=True)
-    customer_id = db.Column(db.BigInteger)
-    product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False, index=True)
 
     rating = db.Column(db.Integer, nullable=False)
-    comment = db.Column(db.Text)
-    review_date = db.Column(db.Date)
+    comment = db.Column(db.Text, nullable=True)
+    review_date = db.Column(db.Date, nullable=False, default=date.today)
 
-    product = db.relationship("Product", back_populates="reviews")
+    user = db.relationship("User", lazy="joined")
+    product = db.relationship("Product", back_populates="reviews", lazy="joined")
 
 
 class PaymentMethod(db.Model):
