@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+from sqlalchemy import inspect
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request, session, render_template, redirect, url_for, flash
 from dotenv import load_dotenv
@@ -656,6 +657,35 @@ def create_app() -> Flask:
         """Create tables."""
         with app.app_context():
             db.create_all()
+
+            # Backfill legacy schemas where products table exists but lacks newer columns.
+            inspector = inspect(db.engine)
+            table_names = set(inspector.get_table_names())
+            if "products" in table_names:
+                product_cols = {c["name"] for c in inspector.get_columns("products")}
+                dialect = db.engine.dialect.name
+                ddl: list[str] = []
+
+                if "stock" not in product_cols:
+                    ddl.append(
+                        "ALTER TABLE products ADD COLUMN stock BIGINT NOT NULL DEFAULT 0"
+                        if dialect == "postgresql"
+                        else "ALTER TABLE products ADD COLUMN stock BIGINT DEFAULT 0"
+                    )
+                if "is_available" not in product_cols:
+                    ddl.append(
+                        "ALTER TABLE products ADD COLUMN is_available BOOLEAN NOT NULL DEFAULT TRUE"
+                        if dialect == "postgresql"
+                        else "ALTER TABLE products ADD COLUMN is_available BOOLEAN DEFAULT 1"
+                    )
+                if "category_id" not in product_cols:
+                    ddl.append("ALTER TABLE products ADD COLUMN category_id INTEGER")
+
+                if ddl:
+                    with db.engine.begin() as conn:
+                        for stmt in ddl:
+                            conn.exec_driver_sql(stmt)
+                    print("DB schema compatibility updates applied to products table.")
         print("DB initialized (tables created).")
 
     @app.cli.command("seed")
