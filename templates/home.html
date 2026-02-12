@@ -107,9 +107,14 @@
       {% for p in featured %}
         <a class="featured-card" href="{{ url_for('web_product_detail', product_id=p.id) }}">
           <span class="chip">Featured</span>
-          <div class="thumb" aria-hidden="true">🧺</div>
+          {% if p.image_url %}
+            <div class="thumb-img" aria-hidden="true">
+              <img src="{{ p.image_url }}" alt="" loading="lazy" />
+            </div>
+          {% else %}
+            <div class="thumb" aria-hidden="true">🎁</div>
+          {% endif %}
           <div class="p-title">{{ p.name }}</div>
-          <div class="stars" aria-hidden="true">★★★★★</div>
           <div class="p-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
         </a>
       {% endfor %}
