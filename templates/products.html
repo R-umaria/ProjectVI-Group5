@@ -69,8 +69,11 @@
           <p class="muted small clamp-3">{{ p.description }}</p>
 
           <div class="product-actions">
-            <a class="btn btn-outline" href="{{ url_for('web_product_detail', product_id=p.id) }}">View</a>
-            <button class="btn btn-primary" type="button" onclick="addToCart({{ p.id }})" {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}>
+            <a class="btn btn-outline" href="{{ url_for('web_product_detail', product_id=p.id) }}"style="width: 60px;">View</a>
+            <input type="number" min="1" max="{{ p.stock }}" value="1" class="input quantity-input" id="qty-{{ p.id }}" style="width: 80px;"
+              {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}
+            />
+            <button class="btn btn-primary" type="button" onclick="addToCart({{ p.id }}, document.getElementById('qty-{{ p.id }}').value)" {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}>
               Add to cart
             </button>
           </div>

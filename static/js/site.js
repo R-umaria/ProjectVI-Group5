@@ -1,8 +1,8 @@
-async function addToCart(productId) {
+async function addToCart(productId, quantity) {
   const res = await fetch("/api/cart/items", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({product_id: productId, quantity: 1})
+    body: JSON.stringify({product_id: productId, quantity: parseInt(quantity || 1)})
   });
   const msg = document.getElementById("add-msg");
   const data = await res.json().catch(() => ({}));
