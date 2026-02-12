@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, session
 from sqlalchemy import or_, func
 
 from models import Product, Category, Review
@@ -6,8 +6,6 @@ from helpers import error
 from config import Config
 
 from db import db
-from datetime import date
-
 bp = Blueprint("catalog_api", __name__)
 
 @bp.get("/products")
@@ -84,7 +82,7 @@ def product_detail(product_id: int):
     reviews = (
         Review.query
         .filter(Review.product_id == product_id)
-        .order_by(Review.review_date.desc())
+        .order_by(Review.created_at.desc(), Review.id.desc())
         .all()
     )
 
@@ -112,38 +110,54 @@ def product_detail(product_id: int):
         "reviews": [
             {
                 "id": r.id,
-                "customer_id": r.customer_id,
+                "user_id": r.user_id,
                 "product_id": r.product_id,
                 "rating": r.rating,
                 "comment": r.comment,
-                "review_date": r.review_date.isoformat() if r.review_date else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in reviews
         ],
     }, 200
 
 @bp.post("/products/<int:product_id>/reviews")
-def add_review(product_id):
+def add_review(product_id: int):
     if "user_id" not in session:
-        return jsonify({"error": "Login required"}), 401
+        return error("unauthorized", "Login required", 401)
 
     data = request.get_json() or {}
+    rating_raw = data.get("rating")
+    comment = (data.get("comment") or "").strip() or None
 
-    rating = data.get("rating")
-    comment = data.get("comment", "").strip()
+    try:
+        rating = int(rating_raw)
+    except Exception:
+        rating = 0
 
-    if not rating or not (1 <= int(rating) <= 5):
-        return jsonify({"error": "Rating must be 1–5"}), 400
+    if rating < 1 or rating > 5:
+        return error("validation_error", "Rating must be between 1 and 5", 400)
+
+    # Ensure product exists
+    if not Product.query.get(product_id):
+        return error("not_found", "product not found", 404)
 
     review = Review(
-        customer_id=session["user_id"],
+        user_id=session["user_id"],
         product_id=product_id,
-        rating=int(rating),
+        rating=rating,
         comment=comment,
-        review_date=date.today()
     )
 
     db.session.add(review)
     db.session.commit()
 
-    return jsonify({"success": True}), 201
+    return {
+        "review": {
+            "id": review.id,
+            "user_id": review.user_id,
+            "product_id": review.product_id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "created_at": review.created_at.isoformat() if review.created_at else None,
+        }
+    }, 201

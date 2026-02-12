@@ -87,7 +87,8 @@ class Review(db.Model):
 
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text, nullable=True)
-    review_date = db.Column(db.Date, nullable=False, default=date.today)
+    # Store in UTC; convert for display.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = db.relationship("User", lazy="joined")
     product = db.relationship("Product", back_populates="reviews", lazy="joined")

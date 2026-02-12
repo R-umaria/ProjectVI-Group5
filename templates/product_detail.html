@@ -65,7 +65,7 @@
           <div class="review-head">
             <div>
               <div class="review-user">{{ r.user.email if r.user else ('User #' ~ r.user_id) }}</div>
-              <div class="muted small">{{ r.review_date }}</div>
+              <div class="muted small">{{ r.created_at|toronto_dt }}</div>
             </div>
             <div class="review-stars" aria-label="Rating {{ r.rating }} out of 5">
               {% for i in range(5) %}

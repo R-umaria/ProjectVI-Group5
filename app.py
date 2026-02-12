@@ -4,7 +4,8 @@ import os
 import csv
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request, session, render_template, redirect, url_for, flash
 from dotenv import load_dotenv
@@ -68,18 +69,54 @@ def create_app() -> Flask:
             "current_year": datetime.utcnow().year,
         }
 
+    # Format UTC timestamps for humans in America/Toronto.
+    @app.template_filter("toronto_dt")
+    def toronto_dt(value):
+        if not value:
+            return ""
+        # If naive datetime, assume UTC.
+        if getattr(value, "tzinfo", None) is None:
+            value = value.replace(tzinfo=timezone.utc)
+        try:
+            local = value.astimezone(ZoneInfo("America/Toronto"))
+        except Exception:
+            local = value
+        return local.strftime("%Y-%m-%d %I:%M %p")
+
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
         # Homepage: wide layout + featured products.
-        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        featured = Product.query.order_by(Product.created_at.desc(), Product.id.desc()).limit(4).all()
+
+        # Homepage categories (kept intentionally small + aligned with current DB categories).
+        # These slugs must match the query param behavior in /products.
+        wanted = ["box", "basket", "food", "flower", "candle", "book"]
+        emoji_map = {
+            "box": "🎁",
+            "basket": "🧺",
+            "food": "🍫",
+            "flower": "💐",
+            "candle": "🕯️",
+            "book": "📚",
+        }
+
+        # Count products per category (case-insensitive on category_name).
+        counts = dict(
+            db.session.query(db.func.lower(Category.category_name), db.func.count(Product.id))
+            .join(Product, Product.category_id == Category.id)
+            .group_by(db.func.lower(Category.category_name))
+            .all()
+        )
+
         categories = [
-            {"name": "Wellness", "slug": "wellness", "emoji": "🧘", "count": 3},
-            {"name": "Gourmet", "slug": "gourmet", "emoji": "🍷", "count": 4},
-            {"name": "Comfort", "slug": "comfort", "emoji": "🛋️", "count": 1},
-            {"name": "Baby", "slug": "baby", "emoji": "👶", "count": 1},
-            {"name": "Celebration", "slug": "celebration", "emoji": "🎉", "count": 1},
-            {"name": "Hobby", "slug": "hobby", "emoji": "🌱", "count": 1},
+            {
+                "name": slug.title(),
+                "slug": slug,
+                "emoji": emoji_map.get(slug, "🎁"),
+                "count": int(counts.get(slug, 0)),
+            }
+            for slug in wanted
         ]
         return render_template("home.html", featured=featured, categories=categories)
 
@@ -129,11 +166,9 @@ def create_app() -> Flask:
     def web_product_detail(product_id: int):
         product = Product.query.get_or_404(product_id)
 
-        reviews = db.relationship("Review", back_populates="product", cascade="all, delete-orphan", lazy="select")
-
         reviews = (
             Review.query.filter(Review.product_id == product_id)
-            .order_by(Review.review_date.desc(), Review.id.desc())
+            .order_by(Review.created_at.desc(), Review.id.desc())
             .all()
         )
 
