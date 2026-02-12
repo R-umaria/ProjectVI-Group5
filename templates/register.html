@@ -1,10 +1,275 @@
 {% extends "base.html" %}
 {% block title %}Register - BoxedWithLove{% endblock %}
+
 {% block content %}
-<h1>Create account</h1>
-<form method="post" class="form">
-  <label>Email <input name="email" type="email" required></label>
-  <label>Password <input name="password" type="password" required></label>
-  <button class="btn" type="submit">Register</button>
-</form>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+tailwind.config = {
+    theme: {
+        extend: {
+            colors: {
+                background: '#f5f3f0',
+                foreground: '#3d3d3d',
+                card: '#ffffff',
+                primary: '#8b4513',
+                'primary-foreground': '#ffffff',
+                border: '#e0ddd8',
+                destructive: '#d9534f'
+            },
+            fontFamily: {
+                sans: ['DM Sans', 'sans-serif'],
+                serif: ['Georgia', 'Playfair Display', 'serif'],
+            }
+        }
+    }
+}
+</script>
+
+<!-- Register Page Container -->
+<main class="container mx-auto px-4 py-12 max-w-xl">
+    <div class="bg-card rounded-lg shadow-sm p-8">
+
+        <!-- Page Title -->
+        <h2 class="text-3xl font-serif text-foreground mb-2 text-center">
+            Create Account
+        </h2>
+
+        <p class="text-sm text-gray-500 text-center mb-6 font-sans">
+            Join us to start sending love in every box
+        </p>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="space-y-5">
+
+            <!-- First Name -->
+            <div>
+                <label class="block text-sm text-foreground font-medium mb-1">
+                    First Name
+                </label>
+                <input id="firstName" name="first_name" required
+                    class="w-full border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+
+            <!-- Last Name -->
+            <div>
+                <label class="block text-sm text-foreground font-medium mb-1">
+                    Last Name
+                </label>
+                <input id="lastName" name="last_name" required
+                    class="w-full border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+
+            <!-- Email -->
+            <div>
+                <label class="block text-sm text-foreground font-medium mb-1">
+                    Email
+                </label>
+                <input id="email" name="email" type="email" required
+                    class="w-full border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+
+                <!-- Email validation error box -->
+                <div id="emailErrorBox"
+                     class="hidden mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label class="block text-sm text-foreground font-medium mb-1">
+                    Password
+                </label>
+
+                <!-- Password input + show/hide toggle -->
+                <div class="relative flex items-center">
+                    <input id="password" name="password" type="password" required
+                        class="w-full border border-border rounded-lg px-3 py-2 pr-16 focus:outline-none focus:ring-2 focus:ring-primary">
+
+                    <button 
+                        type="button" 
+                        id="togglePassword" 
+                        class="absolute right-3 text-xs font-bold text-gray-500 hover:text-primary uppercase">
+                        Show
+                    </button>
+                </div>
+
+                <!-- Password requirement box -->
+                <div id="passwordRequirements"
+                     class="hidden mt-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                    <p class="font-semibold mb-2">Password must include:</p>
+                    <ul id="passwordList" class="list-disc list-inside space-y-1"></ul>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit"
+                class="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                Create Account
+            </button>
+
+            <!-- General error message -->
+            <p id="errorMessage" class="text-destructive text-sm hidden mt-2"></p>
+
+        </form>
+
+        <!-- Login Link -->
+        <div class="mt-8 pt-6 border-t border-border text-center">
+            <p class="text-sm text-gray-500 font-sans">
+                Already have an account?
+                <a href="/login" class="text-primary font-semibold hover:underline">
+                    Sign in here
+                </a>
+            </p>
+        </div>
+
+    </div>
+</main>
+
+<script>
+const form = document.getElementById("registerForm");
+const firstNameInput = document.getElementById("firstName");
+const lastNameInput = document.getElementById("lastName");
+const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
+const togglePassword = document.getElementById("togglePassword");
+
+const errorEl = document.getElementById("errorMessage");
+const emailErrorBox = document.getElementById("emailErrorBox");
+const passwordBox = document.getElementById("passwordRequirements");
+const passwordList = document.getElementById("passwordList");
+
+/* Show/Hide Pass */
+togglePassword.addEventListener("click", function () {
+    const type = passwordInput.type === "password" ? "text" : "password";
+    passwordInput.type = type;
+    togglePassword.textContent = type === "password" ? "Show" : "Hide";
+});
+
+/* Validation Helpers Functions */
+function markInvalid(input) {
+    input.classList.add("border-red-500", "ring-2", "ring-red-400");
+}
+
+function clearInvalid(input) {
+    input.classList.remove("border-red-500", "ring-2", "ring-red-400");
+}
+
+function isValidEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    return regex.test(email);
+}
+
+/* Password Rules Check */
+function getPasswordErrors(password) {
+    let errors = [];
+
+    if (password.length < 8)
+        errors.push("At least 8 characters");
+
+    if (!/[A-Z]/.test(password))
+        errors.push("One uppercase letter (A-Z)");
+
+    if (!/[a-z]/.test(password))
+        errors.push("One lowercase letter (a-z)");
+
+    if (!/[0-9]/.test(password))
+        errors.push("One digit (0-9)");
+
+    if (!/[!@#$%^&*(),.?\":{}|<>]/.test(password))
+        errors.push("One special character (!@#$%)");
+
+    return errors;
+}
+
+// Live password validation
+passwordInput.addEventListener("input", function () {
+    const errors = getPasswordErrors(passwordInput.value);
+
+    if (errors.length > 0) {
+        passwordList.innerHTML = errors.map(err => `<li>${err}</li>`).join("");
+        passwordBox.classList.remove("hidden");
+    } else {
+        passwordBox.classList.add("hidden");
+    }
+});
+
+/* Form Submit */
+form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    errorEl.classList.add("hidden");
+    emailErrorBox.classList.add("hidden");
+
+    clearInvalid(firstNameInput);
+    clearInvalid(lastNameInput);
+    clearInvalid(emailInput);
+    clearInvalid(passwordInput);
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    let hasError = false;
+
+    // First name validation
+    if (!data.first_name.trim()) {
+        markInvalid(firstNameInput);
+        hasError = true;
+    }
+
+    // Last name validation
+    if (!data.last_name.trim()) {
+        markInvalid(lastNameInput);
+        hasError = true;
+    }
+
+    // Email validation
+    if (!isValidEmail(data.email)) {
+        markInvalid(emailInput);
+        emailErrorBox.textContent = "Please enter a valid email address.";
+        emailErrorBox.classList.remove("hidden");
+        hasError = true;
+    }
+
+    // Password validation
+    const passwordErrors = getPasswordErrors(data.password);
+    if (passwordErrors.length > 0) {
+        markInvalid(passwordInput);
+        passwordList.innerHTML = passwordErrors.map(err => `<li>${err}</li>`).join("");
+        passwordBox.classList.remove("hidden");
+        hasError = true;
+    }
+
+    if (hasError) return;
+
+    // Send request to backend
+    try {
+        const response = await fetch("/api/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            window.location.href = "/login";
+        } else {
+            if (result.error?.code === "conflict") {
+                markInvalid(emailInput);
+                emailErrorBox.textContent = "Please use another email address.";
+                emailErrorBox.classList.remove("hidden");
+            } else {
+                errorEl.textContent = result.error?.message || "Registration failed";
+                errorEl.classList.remove("hidden");
+            }
+        }
+
+    } catch (err) {
+        errorEl.textContent = "Unexpected error occurred";
+        errorEl.classList.remove("hidden");
+    }
+});
+</script>
+
 {% endblock %}

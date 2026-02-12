@@ -39,6 +39,7 @@
             </summary>
               <div class="menu" role="menu">
               <div class="menu-name">{{ nav_user.email }}</div>
+              <a role="menuitem" href="{{ url_for('web_account') }}">My Account</a> <!--My Account Tab-->
               <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
               <a role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
               <div class="menu-sep"></div>
@@ -120,5 +121,18 @@
   </footer>
 
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+
+  <!-- Auto-hide flash messages after 5 seconds -->
+  <script>
+    setTimeout(function() {
+      const flashes = document.querySelectorAll('.flash');
+      flashes.forEach(function(flash) {
+        flash.style.transition = "opacity 0.6s ease";
+        flash.style.opacity = "0";
+        setTimeout(() => flash.remove(), 600);
+      });
+    }, 5000); // 5000 ms = 5 seconds
+  </script>
+
 </body>
 </html>

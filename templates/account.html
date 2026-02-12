@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}My Account - BoxedWithLove{% endblock %}
+
+{% block content %}
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+tailwind.config = {
+    theme: {
+        extend: {
+            colors: {
+                primary: '#8b4513',
+                destructive: '#d9534f',
+                softbg: '#f8f6f3'
+            },
+            fontFamily: {
+                sans: ['DM Sans', 'sans-serif'],
+                serif: ['Playfair Display', 'serif'],
+            }
+        }
+    }
+}
+</script>
+
+<!-- Account Page Container -->
+<main class="max-w-3xl mx-auto px-6 py-8 font-sans">
+<div class="bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
+
+    <!-- Page Title -->
+    <h2 class="text-2xl font-serif text-center mb-1 text-gray-800">
+        My Account
+    </h2>
+
+    <p class="text-center text-gray-500 mb-8 text-sm">
+        Manage your personal information and addresses
+    </p>
+
+    <!-- Personal Info (Read Only) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- First Name -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">First Name</label>
+            <div class="bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
+                {{ user.first_name }}
+            </div>
+        </div>
+
+        <!-- Last Name -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Last Name</label>
+            <div class="bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
+                {{ user.last_name }}
+            </div>
+        </div>
+
+        <!-- Email -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Email</label>
+            <div class="bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
+                {{ user.email }}
+            </div>
+        </div>
+
+        <!-- Password (••••••••) -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Password</label>
+            <div class="bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800">
+                ••••••••
+            </div>
+        </div>
+    </div>
+
+    <hr class="mb-8 border-gray-200">
+
+    <!-- Phone Section -->
+    <h3 class="text-xl font-serif mb-4 text-gray-800">
+        Phone Number
+    </h3>
+
+    <!-- Phone update form -->
+    <form method="post" action="{{ url_for('web_update_phone') }}" class="space-y-4 mb-8 text-left">
+        <div class="space-y-2">
+            <label class="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                Phone <span class="text-gray-400 lowercase">(Optional)</span>
+            </label>
+
+            <p class="text-xs text-gray-400 max-w-md leading-relaxed">
+                To update your phone number, enter a new one below. Leave it blank to keep your current number.
+            </p>
+
+            <!-- Country code + phone input -->
+            <div class="flex gap-2 max-w-md">
+
+                <!-- Country Code Dropdown -->
+                <div class="relative">
+                    <select name="country_code"
+                        class="bg-softbg border border-gray-200 rounded-l-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-primary appearance-none">
+                        <option value="+1">+1 (CA)</option>
+                        <option value="+1">+1 (US)</option>
+                        <option value="+44">+44 (UK)</option>
+                        <option value="+49">+49 (DE)</option>
+                        <option value="+90">+90 (TR)</option> <option value="+33">+33 (FR)</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400 text-[10px]">
+                        ▼
+                    </div>
+                </div>
+
+                <!-- Phone Number Input -->
+                <input 
+                    type="tel"
+                    name="phone_number"
+                    maxlength="15"
+                    inputmode="numeric"
+                    pattern="[0-9]{6,15}"
+                    placeholder="5551234567"
+                    class="w-full bg-softbg border-t border-b border-r border-gray-200 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition">
+            </div>
+
+            <!-- Show current phone if exists -->
+            {% if user.phone_number %}
+            <p class="text-xs text-gray-500 mt-1 italic text-primary">
+                Current: {{ user.phone_number }}
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit"
+            class="bg-primary text-white px-8 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition shadow-sm">
+            Save Phone
+        </button>
+    </form>
+
+    <hr class="mb-8 border-gray-200">
+
+    <!-- Address List -->
+    {% if user.addresses %}
+    <h3 class="text-xl font-serif mb-6 text-gray-800">
+        My Addresses
+    </h3>
+
+    <div class="space-y-4 mb-8 text-left">
+        {% for address in user.addresses %}
+
+        <!-- Single Address Card -->
+        <div class="bg-softbg border border-gray-200 rounded-lg p-4 flex justify-between items-start hover:shadow-sm transition">
+
+            <!-- Address Details -->
+            <div class="space-y-1 text-gray-700 text-sm text-left">
+                <p class="font-semibold text-primary uppercase text-xs tracking-wide">
+                    {{ address.label or "Address" }}
+                </p>
+                <p>{{ address.street_address }}</p>
+                <p>{{ address.postal_code }}</p>
+                <p class="text-gray-500">
+                    {% if address.country == "CA" %} Canada
+                    {% elif address.country == "US" %} United States
+                    {% elif address.country == "GB" %} United Kingdom
+                    {% elif address.country == "DE" %} Germany
+                    {% elif address.country == "TR" %} Turkey
+                    {% elif address.country == "FR" %} France
+                    {% else %} {{ address.country }} {% endif %}
+                </p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-2">
+
+                <!-- Edit Button -->
+                <button type="button"
+                    onclick="editAddress('{{ address.id }}','{{ address.label or '' }}','{{ address.street_address }}','{{ address.postal_code }}','{{ address.country }}')"
+                    class="px-3 py-1.5 text-xs font-medium rounded border border-primary text-primary hover:bg-primary hover:text-white transition">
+                    Edit
+                </button>
+
+                <!-- Delete Button -->
+                <form method="post" action="{{ url_for('web_delete_address', address_id=address.id) }}">
+                    <button type="submit"
+                        onclick="return confirm('Are you sure you want to delete this address?')"
+                        class="px-3 py-1.5 text-xs font-medium rounded border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition w-full">
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr class="mb-8 border-gray-200">
+    {% endif %}
+
+    <!-- Address Form -->
+    <h3 id="address-form-title" class="text-xl font-serif mb-6 text-gray-800 text-left">
+        Add / Update Address
+    </h3>
+
+    <!-- Address Create / Update Form -->
+    <form method="post" action="{{ url_for('web_add_address') }}" class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+        
+        <!-- Hidden ID for editing -->
+        <input type="hidden" name="address_id" id="address_id">
+
+        <!-- Address Label -->
+        <div class="md:col-span-2 space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Address Label (Optional)</label>
+            <input id="label" name="label" placeholder="Home, Work, etc."
+                class="w-full bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition">
+        </div>
+
+        <!-- Street Address -->
+        <div class="md:col-span-2 space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Street Address</label>
+            <input id="street_address" name="street_address" required
+                class="w-full bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition">
+        </div>
+
+        <!-- Postal Code -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Postal Code</label>
+            <input id="postal_code" name="postal_code" required
+                class="w-full bg-softbg border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition">
+        </div>
+
+        <!-- Country -->
+        <div class="space-y-1">
+            <label class="text-xs text-gray-500 font-medium">Country</label>
+            <div class="relative">
+                <select id="country" name="country" required
+                    class="w-full bg-softbg border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-primary appearance-none transition">
+                    <option value="">Select Country</option>
+                    <option value="CA">Canada</option>
+                    <option value="US">United States</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="DE">Germany</option>
+                    <option value="TR">Turkey</option> <option value="FR">France</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-gray-400 text-xs">
+                    ▼
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Address -->
+        <div class="md:col-span-2 mt-2">
+            <button type="submit"
+                class="w-full bg-primary text-white py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition shadow-sm">
+                Save Address
+            </button>
+        </div>
+    </form>
+
+</div>
+</main>
+
+<script>
+// Prefill form when editing address
+function editAddress(id, label, street, postal, country){
+    document.getElementById("address_id").value = id;
+    document.getElementById("label").value = label;
+    document.getElementById("street_address").value = street;
+    document.getElementById("postal_code").value = postal;
+    document.getElementById("country").value = country;
+    
+    document.getElementById("address-form-title").innerText = "Update Address: " + (label || "Selected");
+    window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+}
+</script>
+
+{% endblock %}
