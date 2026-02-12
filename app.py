@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Category
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Category, Review
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -128,6 +128,8 @@ def create_app() -> Flask:
     @app.get("/products/<int:product_id>")
     def web_product_detail(product_id: int):
         product = Product.query.get_or_404(product_id)
+
+        reviews = db.relationship("Review", back_populates="product", cascade="all, delete-orphan", lazy="select")
 
         reviews = (
             Review.query.filter(Review.product_id == product_id)
