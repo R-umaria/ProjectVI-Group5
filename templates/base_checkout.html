@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Checkout - BoxedWithLove{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CDN (MVP). If you later compile Tailwind, remove this. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: '#f5f3f0',
+            foreground: '#171717',
+            card: '#ffffff',
+            border: '#e7e0d7',
+            muted: '#6b7280',
+            primary: '#8B3A2B',
+            'primary-foreground': '#ffffff',
+            secondary: '#f3f4f6',
+          },
+          fontFamily: {
+            serif: ['Playfair Display', 'serif'],
+            sans: ['DM Sans', 'system-ui', 'sans-serif'],
+          },
+          borderRadius: {
+            lg: '0.75rem',
+            xl: '1rem',
+          },
+          boxShadow: {
+            soft: '0 6px 20px rgba(0,0,0,0.06)',
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'DM Sans', system-ui, sans-serif; }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col bg-background text-foreground">
+
+  <header class="border-b border-border bg-card">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center justify-between">
+        <a href="{{ url_for('home') }}" class="inline-block">
+          <span class="font-serif text-xl font-semibold">BoxedWithLove</span>
+        </a>
+        <a href="{{ url_for('web_cart') }}" class="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground">
+          <span aria-hidden="true">←</span>
+          Back to Cart
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mb-6 space-y-2">
+            {% for category, msg in messages %}
+              <div class="rounded-lg border border-border bg-card px-4 py-3 text-sm">
+                <span class="font-medium">{{ msg }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+
+    </div>
+  </main>
+
+</body>
+</html>

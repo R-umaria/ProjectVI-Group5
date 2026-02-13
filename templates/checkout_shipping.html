@@ -1,0 +1,134 @@
+{% extends "base_checkout.html" %}
+
+{% block title %}Checkout – Shipping | BoxedWithLove{% endblock %}
+
+{% block content %}
+{% set active = 'shipping' %}
+
+<!-- Stepper -->
+<div class="mb-8">
+  <div class="flex items-center justify-center gap-4">
+    {% set steps = [
+      {'key':'shipping','label':'Shipping','n':1},
+      {'key':'payment','label':'Payment','n':2},
+      {'key':'review','label':'Review','n':3}
+    ] %}
+    {% for s in steps %}
+      {% set is_active = active == s.key %}
+      {% set is_past = (active == 'payment' and s.key == 'shipping') or (active == 'review' and (s.key == 'shipping' or s.key == 'payment')) %}
+      <div class="flex items-center">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+            {% if is_active %} bg-primary text-primary-foreground
+            {% elif is_past %} bg-primary/20 text-primary
+            {% else %} bg-secondary text-muted
+            {% endif %}">
+            {% if is_past %}
+              <!-- check icon -->
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            {% else %}
+              {{ s.n }}
+            {% endif %}
+          </div>
+          <span class="text-sm font-medium {% if is_active %}text-foreground{% else %}text-muted{% endif %}">
+            {{ s.label }}
+          </span>
+        </div>
+        {% if not loop.last %}
+          <div class="w-16 h-px mx-4 {% if is_past %}bg-primary/30{% else %}bg-border{% endif %}"></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-8 items-start">
+  <!-- Left: Shipping form -->
+  <div class="lg:col-span-2">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary" aria-hidden="true">
+            🚚
+          </div>
+          <h1 class="text-lg font-semibold">Shipping Address</h1>
+        </div>
+
+        <form method="post" action="{{ url_for('checkout_shipping_post') }}" class="space-y-4">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="first_name">First Name</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="first_name" name="first_name" value="{{ shipping.get('first_name','') }}" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="last_name">Last Name</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="last_name" name="last_name" value="{{ shipping.get('last_name','') }}" required />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1" for="address">Street Address</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="address" name="address" value="{{ shipping.get('address','') }}" required />
+          </div>
+
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="city">City</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="city" name="city" value="{{ shipping.get('city','') }}" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="state">State</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="state" name="state" value="{{ shipping.get('state','') }}" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="zip_code">ZIP Code</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="zip_code" name="zip_code" value="{{ shipping.get('zip_code','') }}" required />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1" for="phone">Phone Number</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="phone" name="phone" value="{{ shipping.get('phone','') }}" required />
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-95">
+              Continue to Payment
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Order Summary -->
+  <div class="lg:col-span-1">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+
+        <div class="space-y-3 mb-4">
+          {% for i in items %}
+            <div class="flex items-start justify-between text-sm">
+              <div class="text-foreground/90">{{ i.name }} x{{ i.quantity }}</div>
+              <div class="text-foreground/90">${{ "%.2f"|format(i.line_total_cents/100) }}</div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="border-t border-border pt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Subtotal</span><span>${{ "%.2f"|format(summary.subtotal_cents/100) }}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Shipping</span><span>{% if summary.shipping_cents == 0 %}Free{% else %}${{ "%.2f"|format(summary.shipping_cents/100) }}{% endif %}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Tax</span><span>${{ "%.2f"|format(summary.tax_cents/100) }}</span></div>
+          <div class="border-t border-border pt-3 flex justify-between font-semibold">
+            <span>Total</span><span>${{ "%.2f"|format(summary.total_cents/100) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

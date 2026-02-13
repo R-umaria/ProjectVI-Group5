@@ -12,6 +12,20 @@ class User(db.Model):
     phone_number = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
+    addresses = db.relationship(
+        "Address",
+        backref="user",
+        cascade="all, delete-orphan"
+    )
+
+class Address(db.Model):
+    __tablename__ = "addresses"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    label = db.Column(db.String(50), nullable=True)  # Multiple address type field -> Home, Work, etc.
+    street_address = db.Column(db.Text, nullable=False)
+    postal_code = db.Column(db.String(20), nullable=False)
+    country = db.Column(db.String(100), nullable=False)
 
 class Category(db.Model):
     __tablename__ = "categories"

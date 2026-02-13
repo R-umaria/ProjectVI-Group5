@@ -8,6 +8,9 @@ from models import Order, OrderItem, CartItem, Product, PaymentMethod
 
 bp = Blueprint("orders_api", __name__)
 
+# Keep totals consistent with the cart module.
+TAX_RATE = 0.13
+
 
 def require_user_id():
     uid = session.get("user_id")
@@ -123,7 +126,7 @@ def create_order():
 
     # Transaction: create order, items, clear cart
     try:
-        total_cents = 0
+        subtotal_cents = 0
 
         order = Order(
             user_id=uid,
@@ -148,7 +151,7 @@ def create_order():
             if qty < 1:
                 raise ValueError("invalid quantity in cart")
 
-            total_cents += unit_price_cents * qty
+            subtotal_cents += unit_price_cents * qty
 
             oi = OrderItem(
                 order_id=order.id,
@@ -158,6 +161,10 @@ def create_order():
             )
             db.session.add(oi)
 
+        tax_cents = int(subtotal_cents * TAX_RATE)
+        shipping_cents = 0
+        total_cents = subtotal_cents + tax_cents + shipping_cents
+
         # If your Order model has total_cents, set it. (Some teams add it; safe-guard.)
         if hasattr(order, "total_cents"):
             order.total_cents = total_cents
@@ -166,6 +173,10 @@ def create_order():
         CartItem.query.filter_by(user_id=uid).delete()
 
         db.session.commit()
+
+        # Clear checkout state (server-rendered flow stores shipping + selected PM in session).
+        session.pop("checkout_shipping", None)
+        session.pop("checkout_payment_method_id", None)
 
     except ValueError as ve:
         db.session.rollback()
