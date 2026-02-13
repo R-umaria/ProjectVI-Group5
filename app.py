@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+import csv
+import re
+from pathlib import Path
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request, session, render_template, redirect, url_for, flash
 from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Address 
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Address, Category, Review
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -65,30 +69,64 @@ def create_app() -> Flask:
             "current_year": datetime.utcnow().year,
         }
 
+    # Format UTC timestamps for humans in America/Toronto.
+    @app.template_filter("toronto_dt")
+    def toronto_dt(value):
+        if not value:
+            return ""
+        # If naive datetime, assume UTC.
+        if getattr(value, "tzinfo", None) is None:
+            value = value.replace(tzinfo=timezone.utc)
+        try:
+            local = value.astimezone(ZoneInfo("America/Toronto"))
+        except Exception:
+            local = value
+        return local.strftime("%Y-%m-%d %I:%M %p")
+
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
         # Homepage: wide layout + featured products.
-        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        featured = Product.query.order_by(Product.created_at.desc(), Product.id.desc()).limit(4).all()
+
+        # Homepage categories (kept intentionally small + aligned with current DB categories).
+        # These slugs must match the query param behavior in /products.
+        wanted = ["box", "basket", "food", "flower", "candle", "book"]
+        emoji_map = {
+            "box": "🎁",
+            "basket": "🧺",
+            "food": "🍫",
+            "flower": "💐",
+            "candle": "🕯️",
+            "book": "📚",
+        }
+
+        # Count products per category (case-insensitive on category_name).
+        counts = dict(
+            db.session.query(db.func.lower(Category.category_name), db.func.count(Product.id))
+            .join(Product, Product.category_id == Category.id)
+            .group_by(db.func.lower(Category.category_name))
+            .all()
+        )
+
         categories = [
-            {"name": "Wellness", "slug": "wellness", "emoji": "🧘", "count": 3},
-            {"name": "Gourmet", "slug": "gourmet", "emoji": "🍷", "count": 4},
-            {"name": "Comfort", "slug": "comfort", "emoji": "🛋️", "count": 1},
-            {"name": "Baby", "slug": "baby", "emoji": "👶", "count": 1},
-            {"name": "Celebration", "slug": "celebration", "emoji": "🎉", "count": 1},
-            {"name": "Hobby", "slug": "hobby", "emoji": "🌱", "count": 1},
+            {
+                "name": slug.title(),
+                "slug": slug,
+                "emoji": emoji_map.get(slug, "🎁"),
+                "count": int(counts.get(slug, 0)),
+            }
+            for slug in wanted
         ]
         return render_template("home.html", featured=featured, categories=categories)
 
     @app.get("/products")
     def web_products():
         search = (request.args.get("search") or "").strip()
-        category = (request.args.get("category") or "").strip().lower()
+        category = (request.args.get("category") or "").strip()
+        sort = (request.args.get("sort") or "popular").strip()
 
         q = Product.query
-        # If category is provided but no search, treat category as a search hint.
-        if category and not search:
-            search = category
 
         if search:
             like = f"%{search}%"
@@ -100,13 +138,83 @@ def create_app() -> Flask:
                 )
             )
 
-        products = q.order_by(Product.id.asc()).limit(24).all()
-        return render_template("products.html", products=products, search=search, category=category)
+        if category:
+            q = q.join(Category).filter(db.func.lower(Category.category_name) == category.lower())
+
+        if sort == "price_asc":
+            q = q.order_by(Product.price_cents.asc(), Product.id.asc())
+        elif sort == "price_desc":
+            q = q.order_by(Product.price_cents.desc(), Product.id.asc())
+        elif sort == "newest":
+            q = q.order_by(Product.created_at.desc(), Product.id.desc())
+        else:
+            q = q.order_by(Product.id.asc())
+
+        products = q.limit(24).all()
+        categories = Category.query.order_by(Category.category_name.asc()).all()
+
+        return render_template(
+            "products.html",
+            products=products,
+            categories=categories,
+            search=search,
+            category=category,
+            sort=sort,
+        )
 
     @app.get("/products/<int:product_id>")
     def web_product_detail(product_id: int):
         product = Product.query.get_or_404(product_id)
-        return render_template("product_detail.html", product=product)
+
+        reviews = (
+            Review.query.filter(Review.product_id == product_id)
+            .order_by(Review.created_at.desc(), Review.id.desc())
+            .all()
+        )
+
+        avg_rating = (
+            db.session.query(db.func.avg(Review.rating))
+            .filter(Review.product_id == product_id)
+            .scalar()
+        )
+        avg_rating = float(avg_rating) if avg_rating is not None else 0.0
+
+        return render_template(
+            "product_detail.html",
+            product=product,
+            reviews=reviews,
+            avg_rating=avg_rating,
+        )
+
+    @app.post("/products/<int:product_id>/reviews")
+    def web_post_review(product_id: int):
+        user = current_user()
+        if not user:
+            flash("Please log in to leave a review.", "info")
+            return redirect(url_for("web_login"))
+
+        product = Product.query.get(product_id)
+        if not product:
+            return render_template("404.html"), 404
+
+        rating_raw = (request.form.get("rating") or "").strip()
+        comment = (request.form.get("comment") or "").strip() or None
+
+        try:
+            rating = int(rating_raw)
+        except Exception:
+            rating = 0
+
+        if rating < 1 or rating > 5:
+            flash("Rating must be between 1 and 5.", "error")
+            return redirect(url_for("web_product_detail", product_id=product_id))
+
+        r = Review(user_id=user.id, product_id=product_id, rating=rating, comment=comment)
+        db.session.add(r)
+        db.session.commit()
+
+        flash("Thanks! Your review was submitted.", "success")
+        return redirect(url_for("web_product_detail", product_id=product_id))
 
     @app.get("/cart")
     def web_cart():
@@ -359,20 +467,130 @@ def create_app() -> Flask:
 
     @app.cli.command("seed")
     def seed_cmd():
-        """Insert a few sample products for demos/tests."""
+        """Seed database with products (CSV if present, otherwise minimal demo data)."""
         with app.app_context():
             db.create_all()
-            if Product.query.count() == 0:
-                samples = [
-                    Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url=""),
-                    Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url=""),
-                    Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url=""),
-                ]
-                db.session.add_all(samples)
+
+            # Prevent accidental duplication
+            if Product.query.count() > 0:
+                print("Products already exist. Reset DB (docker compose down -v) to reseed.")
+                return
+            csv_path = Path(__file__).resolve().parent / "products.csv"
+            # Product images live under static/images/products/
+            images_dir = Path(__file__).resolve().parent / "static" / "images" / "products"
+
+            def parse_price_cents(raw: str) -> int:
+                raw = (raw or "").strip()
+                if not raw:
+                    return 0
+                if "." in raw:
+                    return int(round(float(raw) * 100))
+                return int(raw)
+
+            def slug_sku(name: str, used: set[str]) -> str:
+                base = re.sub(r"[^A-Za-z0-9]+", "", (name or "").upper())[:10] or "ITEM"
+                sku = f"BWL-{base}"
+                i = 2
+                while sku in used:
+                    sku = f"BWL-{base}-{i}"
+                    i += 1
+                used.add(sku)
+                return sku
+
+            def resolve_image_url(product_name: str, image_field: str | None) -> str | None:
+                image_field = (image_field or "").strip()
+
+                # If someone later puts a real URL in the CSV, accept it
+                if image_field.startswith("http://") or image_field.startswith("https://"):
+                    return image_field
+
+                # If CSV contains a real filename like Basket01.jpg, use it (if exists)
+                if image_field and "." in image_field:
+                    p = images_dir / image_field
+                    if p.exists():
+                        return f"/static/images/products/{p.name}"
+
+                # Fast path: build a case-insensitive stem->filename map once
+                # (handles .jpg/.png/.webp and any casing)
+                if not hasattr(resolve_image_url, "_stem_map"):
+                    stem_map = {}
+                    if images_dir.exists():
+                        for fp in images_dir.iterdir():
+                            if fp.is_file():
+                                stem_map[fp.stem.lower()] = fp.name
+                    setattr(resolve_image_url, "_stem_map", stem_map)
+
+                stem_map = getattr(resolve_image_url, "_stem_map")
+                hit = stem_map.get((product_name or "").strip().lower())
+                if hit:
+                    return f"/static/images/products/{hit}"
+
+                # Auto-match: ProductName + common extensions
+                base = (product_name or "").strip()
+                candidates = []
+                for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    candidates.append(base + ext)
+                    candidates.append(base.lower() + ext)
+                    candidates.append(base.upper() + ext)
+
+                for c in candidates:
+                    p = images_dir / c
+                    if p.exists():
+                        return f"/static/images/products/{p.name}"
+
+                return None  # ok; UI will show placeholder
+
+            # Create categories lazily
+            categories_by_name: dict[str, Category] = {}
+
+            used_skus: set[str] = set()
+
+            if csv_path.exists():
+                print(f"Seeding from CSV: {csv_path}")
+                with open(csv_path, newline="", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+
+                    for row in reader:
+                        name = (row.get("ProductName") or "").strip()
+                        if not name:
+                            continue
+
+                        category_name = (row.get("Category") or "").strip() or "General"
+                        if category_name not in categories_by_name:
+                            cat = Category(category_name=category_name)
+                            db.session.add(cat)
+                            categories_by_name[category_name] = cat
+
+                        price_cents = parse_price_cents(row.get("ProductPrice"))
+                        desc = (row.get("Description") or "").strip()
+                        image_url = resolve_image_url(name, row.get("Image_URL"))
+
+                        p = Product(
+                            sku=slug_sku(name, used_skus),
+                            name=name,
+                            description=desc,
+                            price_cents=price_cents,
+                            image_url=image_url,
+                            category=categories_by_name[category_name],
+                            stock=50,
+                            is_available=True,
+                        )
+                        db.session.add(p)
+
                 db.session.commit()
-                print("Seeded products.")
-            else:
-                print("Products already exist; skipping seed.")
+                print(f"Seeded {Product.query.count()} products.")
+                return
+
+            # Fallback minimal seed if CSV missing
+            print("products.csv not found, seeding minimal demo products.")
+            cat = Category(category_name="General")
+            db.session.add(cat)
+            db.session.add_all([
+                Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url="", category=cat, stock=25, is_available=True),
+                Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url="", category=cat, stock=18, is_available=True),
+                Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url="", category=cat, stock=30, is_available=True),
+            ])
+            db.session.commit()
 
     return app
 
