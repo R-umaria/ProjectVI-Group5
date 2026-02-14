@@ -29,10 +29,14 @@
       <p class="small">{{ product.description }}</p>
 
       <div class="product-actions" style="margin-top: 14px;">
-        <button class="btn btn-primary btn-lg" type="button" onclick="addToCart({{ product.id }})" {% if (not product.is_available) or (product.stock <= 0) %}disabled{% endif %}>
+        <input type="number" min="1" max="{{ product.stock }}" value="1" class="input quantity-input" id="qty-{{ product.id }}" style="width: 80px;"
+          {% if (not product.is_available) or (product.stock <= 0) %}disabled{% endif %}
+        />
+        <button class="btn btn-primary" type="button" onclick="addToCart({{ product.id }}, document.getElementById('qty-{{ product.id }}').value)" {% if (not product.is_available) or (product.stock <= 0) %}disabled{% endif %}>            
           Add to cart
         </button>
       </div>
+
       <p id="add-msg" class="muted" aria-live="polite"></p>
 
       <div class="review-summary">
