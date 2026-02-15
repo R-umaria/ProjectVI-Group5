@@ -66,7 +66,7 @@ def ensure_payment_method(uid: int, payment_method_id: int | None):
     return None, error("validation_error", "no payment methods on file", 400)
 
 
-@bp.get("/orders")
+@bp.route("/orders", methods=["GET"], provide_automatic_options=False)
 def list_orders():
     uid, err = require_user_id()
     if err:
@@ -80,7 +80,7 @@ def list_orders():
     return {"items": [order_to_dict(o, include_items=False) for o in orders]}, 200
 
 
-@bp.get("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["GET"], provide_automatic_options=False)
 def get_order(order_id: int):
     uid, err = require_user_id()
     if err:
@@ -95,7 +95,7 @@ def get_order(order_id: int):
     return order_to_dict(order, include_items=True), 200
 
 
-@bp.post("/orders")
+@bp.route("/orders", methods=["POST"], provide_automatic_options=False)
 def create_order():
     """
     Checkout:
@@ -200,7 +200,7 @@ def create_order():
     }, 201
 
 
-@bp.patch("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["PATCH"], provide_automatic_options=False)
 def patch_order(order_id: int):
     """
     Limited state transitions:
@@ -233,7 +233,7 @@ def patch_order(order_id: int):
     return order_to_dict(order, include_items=False), 200
 
 
-@bp.delete("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["DELETE"], provide_automatic_options=False)
 def delete_order(order_id: int):
     """
     Prefer soft-cancel: set status=cancelled.
@@ -256,10 +256,19 @@ def delete_order(order_id: int):
 
 
 @bp.route("/orders", methods=["OPTIONS"])
-@bp.route("/orders/<int:order_id>", methods=["OPTIONS"])
-def orders_options(order_id: int | None = None):
+def orders_options_collection():
     resp = make_response("", 204)
-    resp.headers["Allow"] = "GET,POST,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    allow = "GET,POST,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@bp.route("/orders/<int:order_id>", methods=["OPTIONS"])
+def orders_options_item(order_id):
+    resp = make_response("", 204)
+    allow = "GET,PATCH,DELETE,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return resp
