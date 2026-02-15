@@ -119,7 +119,7 @@ def apply_default_rule(uid: int, pm: PaymentMethod, want_default: bool):
     pm.is_default = True
 
 
-@bp.get("/payment-methods")
+@bp.route("/payment-methods", methods=["GET"], provide_automatic_options=False)
 def list_payment_methods():
     uid, err = require_user_id()
     if err:
@@ -133,7 +133,7 @@ def list_payment_methods():
     return {"items": [to_dict(pm) for pm in items]}, 200
 
 
-@bp.post("/payment-methods")
+@bp.route("/payment-methods", methods=["POST"], provide_automatic_options=False)
 def create_payment_method():
     uid, err = require_user_id()
     if err:
@@ -159,7 +159,7 @@ def create_payment_method():
     return to_dict(pm), 201
 
 
-@bp.put("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["PUT"], provide_automatic_options=False)
 def replace_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -182,7 +182,7 @@ def replace_payment_method(payment_method_id: int):
     return to_dict(pm), 200
 
 
-@bp.patch("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["PATCH"], provide_automatic_options=False)
 def update_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -207,7 +207,7 @@ def update_payment_method(payment_method_id: int):
     return to_dict(pm), 200
 
 
-@bp.delete("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["DELETE"], provide_automatic_options=False)
 def delete_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -236,11 +236,22 @@ def delete_payment_method(payment_method_id: int):
 
 
 # Optional: explicit OPTIONS for these resources (already have /api/options, but this is cleaner)
+from flask import make_response
+
 @bp.route("/payment-methods", methods=["OPTIONS"])
-@bp.route("/payment-methods/<int:payment_method_id>", methods=["OPTIONS"])
-def payment_methods_options(payment_method_id: int | None = None):
+def payment_methods_options_collection():
     resp = make_response("", 204)
-    resp.headers["Allow"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    allow = "GET,POST,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["OPTIONS"])
+def payment_methods_options_item(payment_method_id):
+    resp = make_response("", 204)
+    allow = "GET,PUT,PATCH,DELETE,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return resp
