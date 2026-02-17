@@ -4,6 +4,7 @@
   --foreground: #2f241f;
   --card: #ffffff;
   --primary: #7b2d2a;
+  --primary-hover: rgba(123, 45, 42, 0.92);
   --primary-foreground: #faf7f1;
   --secondary: #f3eadc;
   --muted-foreground: rgba(47, 36, 31, 0.68);

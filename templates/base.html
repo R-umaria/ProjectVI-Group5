@@ -68,7 +68,7 @@
     </nav>
   </header>
 
-  <main class="container" role="main">
+  <main class="container{% block main_class %}{% endblock %}" role="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">

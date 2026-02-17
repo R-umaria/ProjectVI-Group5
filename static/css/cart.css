@@ -1,5 +1,8 @@
 /* Cart page styles – scoped to the cart template only.
    Uses global tokens/primitives from static/css/site.css */
+.container.cart-container {
+  padding: 0 16px 18px;
+}
 
 .cart-header {
   background: rgba(243, 234, 220, 0.30);
@@ -13,9 +16,9 @@
 .cart-title {
   margin: 0;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: 42px;
+  font-size: 36px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .cart-page {
@@ -226,9 +229,9 @@
   gap: 10px;
 }
 
-.cart-money { font-weight: 650; }
+.cart-money { font-weight: 400; }
 
-.cart-shipping { color: var(--primary); font-weight: 650; }
+.cart-shipping { color: var(--primary); font-weight: 400; }
 
 .cart-divider {
   height: 1px;
@@ -246,17 +249,25 @@
 
 .cart-total-label {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .cart-total {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .cart-checkout {
   width: 100%;
-  border-radius: 12px; /* match screenshot button */
+  border-radius: 6px; /* match screenshot button */
+}
+
+button.cart-checkout {
+  font-weight: 400;
+}
+
+button.cart-checkout:hover {
+  background: var(--primary-hover);
 }
 
 .cart-auth-note {
@@ -307,7 +318,7 @@
 .cart-empty-cta svg { width: 18px; height: 18px; }
 
 @media (max-width: 520px) {
-  .cart-title { font-size: 34px; }
+  .cart-title { font-size: 32px; }
   .cart-thumb { width: 86px; height: 86px; }
   .cart-item-actions { flex-wrap: wrap; justify-content: flex-start; }
   .cart-remove { padding-left: 0; }
