@@ -2,227 +2,206 @@
 {% block title %}Cart - BoxedWithLove{% endblock %}
 
 {% block content %}
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="static/css/cart.css">
-<script>
-    document.body.classList.add('cart-page');
-</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
 
-<!-- TEMP until we set up tailwind properly -->
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    background: '#f5f3f0',
-                    foreground: '#3d3d3d',
-                    card: '#ffffff',
-                    'card-foreground': '#3d3d3d',
-                    primary: '#8b4513',
-                    'primary-foreground': '#ffffff',
-                    muted: '#f5f3f0',
-                    'muted-foreground': '#999999',
-                    accent: '#8b6f47',
-                    'accent-foreground': '#ffffff',
-                    destructive: '#d9534f',
-                    'destructive-foreground': '#ffffff',
-                    border: '#e0ddd8',
-                },
-                fontFamily: {
-                    sans: ['DM Sans', 'sans-serif'],
-                    serif: ['Georgia', 'Playfair Display', 'serif'],
-                }
-            }
-        }
-    }
-</script>
+<section class="cart-header full-bleed" aria-labelledby="cart-title">
+  <div class="wrap">
+    <h1 id="cart-title" class="cart-title">Your Cart</h1>
+  </div>
+</section>
 
-<main class="container mx-auto px-4 py-8 max-w-7xl">
-    <h2 class="text-4xl font-serif text-foreground mb-8">Your Cart</h2>
+<section class="page cart-page">
+  <div class="cart-grid">
+    <!-- Cart items -->
+    <div class="cart-items-col">
+      <div id="cartItems" class="cart-items" aria-live="polite">
+        <!-- Filled by JS -->
+      </div>
 
-    <div class="grid lg:grid-cols-3 gap-8 items-start">
-        <!-- cart items -->
-        <div class="lg:col-span-2">
-            <div id="cartItems" class="bg-card rounded-lg shadow-sm">
-                <!-- items fill in here -->
-            </div>
-
-            <a href="/products"
-                class="inline-flex items-center gap-2 mt-6 text-foreground hover:text-primary transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Continue Shopping
-            </a>
-        </div>
-
-        <!-- order summary -->
-        <aside class="order-summary bg-card rounded-lg shadow-sm p-6">
-            <h3 class="text-xl font-serif text-foreground mb-6">Order Summary</h3>
-
-            <div class="space-y-3 mb-4">
-                <div class="flex justify-between text-foreground">
-                    <span>Subtotal</span>
-                    <span id="subtotal" class="font-medium">$0.00</span>
-                </div>
-
-                <div class="flex justify-between text-muted-foreground">
-                    <span>Tax</span>
-                    <span id="tax">$0.00</span>
-                </div>
-
-                <div class="flex justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span class="text-accent font-medium">Free</span>
-                </div>
-            </div>
-
-            <hr class="border-border my-4">
-
-            <div class="flex justify-between text-xl font-semibold text-foreground mb-6">
-                <span>Total</span>
-                <span id="total">$0.00</span>
-            </div>
-            
-            <!-- if the user is logged in the button just says checkout,
-             otherwise it directs them to sign in -->
-            {% if session.get("user_id") %}
-            <a href="/checkout"
-                class="block w-full text-center bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity">
-                Checkout
-            </a>
-            {% else %}
-            <button onclick="handleCheckout()"
-                class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity">
-                Sign in to Checkout
-            </button>
-
-            <p class="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
-                You'll need to sign in or create an account to complete your purchase.
-            </p>
-            {% endif %}
-
-        </aside>
+      <a href="/products" class="cart-continue" aria-label="Continue shopping">
+        <span class="cart-continue-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </span>
+        Continue Shopping
+      </a>
     </div>
-</main>
+
+    <!-- Order summary -->
+    <aside class="cart-summary" aria-labelledby="summary-title">
+      <h2 id="summary-title" class="cart-summary-title">Order Summary</h2>
+
+      <div class="cart-summary-rows">
+        <div class="cart-summary-row">
+          <span class="muted">Subtotal</span>
+          <span id="subtotal" class="cart-money">$0.00</span>
+        </div>
+        <div class="cart-summary-row">
+          <span class="muted">Estimated Tax</span>
+          <span id="tax" class="cart-money">$0.00</span>
+        </div>
+        <div class="cart-summary-row">
+          <span class="muted">Shipping</span>
+          <span class="cart-shipping">Free</span>
+        </div>
+      </div>
+
+      <div class="cart-divider" role="separator"></div>
+
+      <div class="cart-total-row">
+        <span class="cart-total-label">Total</span>
+        <span id="total" class="cart-total">$0.00</span>
+      </div>
+
+      {% if session.get("user_id") %}
+        <a href="/checkout" class="btn btn-primary btn-lg cart-checkout">Proceed to Checkout</a>
+      {% else %}
+        <button type="button" onclick="handleCheckout()" class="btn btn-primary btn-lg cart-checkout">
+          Sign in to Checkout
+        </button>
+        <p class="cart-auth-note muted">
+          You'll need to sign in or create an account to complete your purchase.
+        </p>
+      {% endif %}
+    </aside>
+  </div>
+</section>
 
 <script>
-    // load cart when page loads
-    document.addEventListener('DOMContentLoaded', loadCart);
+  // Load cart when page loads
+  document.addEventListener('DOMContentLoaded', loadCart);
 
-    async function loadCart() {
-        try {
-            const response = await fetch('/api/cart');
-            const data = await response.json();
+  async function loadCart() {
+    try {
+      const response = await fetch('/api/cart');
+      const data = await response.json();
 
-            displayCartItems(data.items);
-            updateSummary(data.summary);
-        } catch (error) {
-            console.error('Error loading cart:', error);
-        }
+      displayCartItems(data.items);
+      updateSummary(data.summary);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+    }
+  }
+
+  function displayCartItems(items) {
+    const container = document.getElementById('cartItems');
+
+    if (!items || items.length === 0) {
+      container.innerHTML = `
+        <div class="cart-empty">
+          <div class="cart-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z" />
+              <path d="M3 6h18" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+          </div>
+          <h3 class="cart-empty-title">Your cart is empty</h3>
+          <p class="muted cart-empty-sub">Looks like you haven't added any gift baskets to your cart yet.</p>
+          <a href="/products" class="btn btn-primary btn-lg cart-empty-cta">
+            <span aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </span>
+            Start Shopping
+          </a>
+        </div>
+      `;
+      return;
     }
 
-    function displayCartItems(items) {
-        const container = document.getElementById('cartItems');
+    container.innerHTML = items.map((item) => {
+      const lineTotal = (item.subtotal_cents ?? (item.price_cents * item.quantity)) / 100;
+      const img = item.product_image ? `<img src="${item.product_image}" alt="${escapeHtml(item.product_name)}" loading="lazy">` : `<span class="cart-thumb-emoji" aria-hidden="true">🎁</span>`;
+      const desc = item.product_description ? `<p class="cart-item-meta">${escapeHtml(item.product_description)}</p>` : '';
 
-        if (items.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-16 px-4 empty-cart">
-                    <p class="text-lg mb-2">Your cart is empty</p>
-                    <p class="text-sm mb-6">Looks like you havent added any gift baskets yet</p>
-                    <a href="/products" class="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity"> 
-                        Start Shopping
-                    </a>
-                </div>
-            `;
-            return;
-        }
+      return `
+        <article class="cart-item" data-item-id="${item.id}">
+          <div class="cart-item-row">
+            <a class="cart-thumb" href="/products/${item.product_id}" aria-label="View ${escapeHtml(item.product_name)}">
+              ${img}
+            </a>
 
-        container.innerHTML = items.map((item, index) => `
-            <div class="flex flex-col md:flex-row md:items-center gap-4 p-4 ${index !== items.length - 1 ? 'border-b border-border' : ''}" data-item-id="${item.id}">
-                <div class="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 placeholder-image">
-                    <img src="${item.product_image}" alt="${item.product_name}" class="w-full h-full object-cover rounded-lg">
+            <div class="cart-item-main">
+              <div class="cart-item-top">
+                <div class="cart-item-text">
+                  <a class="cart-item-name" href="/products/${item.product_id}">${escapeHtml(item.product_name)}</a>
+                  ${desc}
                 </div>
-                
-                <div class="flex-1 min-w-0">
-                    <h4 class="font-medium text-foreground text-lg mb-1">${item.product_name}</h4>
-                    <p class="text-sm text-muted-foreground">${item.product_description}</p>
+                <div class="cart-item-price">$${lineTotal.toFixed(2)}</div>
+              </div>
+
+              <div class="cart-item-actions">
+                <div class="qty" role="group" aria-label="Quantity controls">
+                  <button type="button" class="qty-btn" aria-label="Decrease quantity" onclick="updateQuantity('${item.id}', ${item.quantity - 1})">−</button>
+                  <span class="qty-value" aria-label="Quantity">${item.quantity}</span>
+                  <button type="button" class="qty-btn" aria-label="Increase quantity" onclick="updateQuantity('${item.id}', ${item.quantity + 1})">+</button>
                 </div>
-                
-                <div class="text-lg font-medium text-foreground md:w-24 text-left md:text-right item-price">
-                    $${(item.price_cents / 100).toFixed(2)}
-                </div>
-                
-                <div class="flex items-center gap-2 bg-muted rounded-lg p-1">
-                    <button 
-                        onclick="updateQuantity('${item.id}', ${item.quantity - 1})" 
-                        class="qty-btn w-8 h-8 flex items-center justify-center hover:bg-background rounded transition-colors text-foreground">
-                        −
-                    </button>
-                    <span class="w-8 text-center font-medium text-foreground">${item.quantity}</span>
-                    <button 
-                        onclick="updateQuantity('${item.id}', ${item.quantity + 1})" 
-                        class="qty-btn w-8 h-8 flex items-center justify-center hover:bg-background rounded transition-colors text-foreground">
-                        +
-                    </button>
-                </div>
-                
-                <button 
-                    onclick="removeItem('${item.id}')" 
-                    class="remove-btn flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors text-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+
+                <button type="button" class="cart-remove" onclick="removeItem('${item.id}')">
+                  <span class="cart-remove-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
                     </svg>
-                    Remove
+                  </span>
+                  Remove
                 </button>
+              </div>
             </div>
-        `).join('');
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function updateSummary(summary) {
+    document.getElementById('subtotal').textContent = `$${(summary.subtotal_cents / 100).toFixed(2)}`;
+    document.getElementById('tax').textContent = `$${(summary.tax_cents / 100).toFixed(2)}`;
+    document.getElementById('total').textContent = `$${(summary.total_cents / 100).toFixed(2)}`;
+  }
+
+  async function updateQuantity(itemId, newQuantity) {
+    if (newQuantity < 1) return removeItem(itemId);
+
+    try {
+      const response = await fetch(`/api/cart/items/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: newQuantity })
+      });
+
+      if (response.ok) loadCart();
+    } catch (error) {
+      console.error('Error updating quantity:', error);
     }
+  }
 
-    function updateSummary(summary) {
-        document.getElementById('subtotal').textContent = `$${(summary.subtotal_cents / 100).toFixed(2)}`;
-        document.getElementById('tax').textContent = `$${(summary.tax_cents / 100).toFixed(2)}`;
-        document.getElementById('total').textContent = `$${(summary.total_cents / 100).toFixed(2)}`;
+  async function removeItem(itemId) {
+    try {
+      const response = await fetch(`/api/cart/items/${itemId}`, { method: 'DELETE' });
+      if (response.ok) loadCart();
+    } catch (error) {
+      console.error('Error removing item:', error);
     }
+  }
 
-    async function updateQuantity(itemId, newQuantity) {
-        if (newQuantity < 1) {
-            return removeItem(itemId);
-        }
+  function handleCheckout() {
+    window.location.href = '/login?redirect=/checkout/shipping';
+  }
 
-        try {
-            const response = await fetch(`/api/cart/items/${itemId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ quantity: newQuantity })
-            });
-
-            if (response.ok) {
-                loadCart();
-            }
-        } catch (error) {
-            console.error('Error updating quantity:', error);
-        }
-    }
-
-    async function removeItem(itemId) {
-        try {
-            const response = await fetch(`/api/cart/items/${itemId}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                loadCart();
-            }
-        } catch (error) {
-            console.error('Error removing item:', error);
-        }
-    }
-
-    function handleCheckout() {
-        window.location.href = '/login?redirect=/checkout/shipping';
-    }
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
 </script>
 {% endblock %}
