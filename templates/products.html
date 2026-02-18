@@ -76,6 +76,7 @@
   <div class="grid products-grid product-catalog-grid">
     {% for p in products %}
       {% set out = (not p.is_available) or (p.stock <= 0) %}
+      {% set rating = product_ratings.get(p.id, {'avg_rating': 0.0, 'review_count': 0}) %}
       <article class="card product-tile">
         <div class="product-tile-media">
           <a class="product-tile-link" href="{{ url_for('web_product_detail', product_id=p.id) }}">
@@ -101,9 +102,10 @@
             onclick="addToCart({{ p.id }}, 1)"
             {% if out %}disabled{% endif %}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M6 8h12l-1 12H7L6 8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M9 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z"></path>
+              <path d="M3 6h18"></path>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
             </svg>
             <span>{{ "Out of Stock" if out else "Add to Cart" }}</span>
           </button>
@@ -112,9 +114,14 @@
         <div class="product-tile-info">
           <a class="product-tile-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
 
-          <div class="product-tile-rating" aria-label="Product rating">
-            <span class="stars" aria-hidden="true">★★★★☆</span>
-            <span class="muted small">({{ 80 + ((p.id * 17) % 180) }})</span>
+          <div class="product-tile-rating" aria-label="Average rating {{ '%.1f'|format(rating.avg_rating) }} out of 5">
+            {% set full = rating.avg_rating|round(0, 'floor')|int %}
+            <span class="stars" aria-hidden="true">
+              {% for i in range(5) %}
+                {% if i < full %}&#9733;{% else %}&#9734;{% endif %}
+              {% endfor %}
+            </span>
+            <span class="muted small" style="font-size: 0.7em;">({{ rating.review_count }})</span>
           </div>
 
           <div class="product-tile-bottom">

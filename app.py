@@ -154,6 +154,28 @@ def create_app() -> Flask:
         products = q.limit(24).all()
         categories = Category.query.order_by(Category.category_name.asc()).all()
 
+        # Batch-load rating stats for visible products to avoid N+1 queries.
+        product_ids = [p.id for p in products]
+        product_ratings = {}
+        if product_ids:
+            rows = (
+                db.session.query(
+                    Review.product_id,
+                    db.func.avg(Review.rating).label("avg_rating"),
+                    db.func.count(Review.id).label("review_count"),
+                )
+                .filter(Review.product_id.in_(product_ids))
+                .group_by(Review.product_id)
+                .all()
+            )
+            product_ratings = {
+                int(r.product_id): {
+                    "avg_rating": float(r.avg_rating) if r.avg_rating is not None else 0.0,
+                    "review_count": int(r.review_count or 0),
+                }
+                for r in rows
+            }
+
         return render_template(
             "products.html",
             products=products,
@@ -161,6 +183,7 @@ def create_app() -> Flask:
             search=search,
             category=category,
             sort=sort,
+            product_ratings=product_ratings,
         )
 
     @app.get("/products/<int:product_id>")
