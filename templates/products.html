@@ -1,18 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Shop - BoxedWithLove{% endblock %}
+{% block main_class %} products-container{% endblock %}
 
 {% block content %}
-<section class="page">
-  <div class="page-row">
-    <h1 class="h1">Shop All</h1>
-    <a class="btn btn-secondary" href="{{ url_for('web_products') }}">Clear</a>
-  </div>
+<section class="page products-page">
 
-  <form class="filters" method="get" action="{{ url_for('web_products') }}">
+  {# determine if any filters are active (controls clear visibility) #}
+  {% set has_active = (search|length > 0) or (category|length > 0) or (sort and sort != 'popular') %}
+
+  <section class="products-header full-bleed" aria-labelledby="products-title">
+    <div class="wrap">
+      <h1 id="products-title" class="products-title" style="font-weight: 500;">{{ category if category else 'Shop All' }}</h1>
+      <div class="muted products-count">{{ products|length }} products found</div>
+    </div>
+  </section>
+
+  <!-- Filters (auto-apply; no Apply button) -->
+  <form class="filters products-filters" method="get" action="{{ url_for('web_products') }}">
     <div class="filters-left">
-      <label class="field">
+      <label class="field" style="width:100%;">
         <span class="field-label">Search</span>
-        <input class="input" name="search" type="search" placeholder="Search gift baskets..." value="{{ search }}" />
+        <div class="searchbox">
+          <svg class="search-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input class="input" name="search" type="search" placeholder="Search products..." value="{{ search }}" />
+        </div>
       </label>
     </div>
 
@@ -20,7 +34,7 @@
       <label class="field">
         <span class="field-label">Category</span>
         <select class="select" name="category">
-          <option value="">All</option>
+          <option value="">All Categories</option>
           {% for c in categories %}
             <option value="{{ c.category_name }}" {% if category and category.lower() == c.category_name.lower() %}selected{% endif %}>{{ c.category_name }}</option>
           {% endfor %}
@@ -37,49 +51,120 @@
         </select>
       </label>
 
-      <button class="btn btn-primary btn-lg" type="submit">Apply</button>
+      {% if has_active %}
+        <a class="clear-link" href="{{ url_for('web_products') }}" aria-label="Clear filters">
+          <span aria-hidden="true" class="clear-x">×</span>
+          <span>Clear</span>
+        </a>
+      {% endif %}
     </div>
   </form>
 
   <p id="add-msg" class="muted" aria-live="polite"></p>
 
-  <div class="grid products-grid">
-    {% for p in products %}
-      <article class="card product-card">
-        <a class="product-img" href="{{ url_for('web_product_detail', product_id=p.id) }}">
-          {% if p.image_url %}
-            <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
-          {% else %}
-            <div class="product-placeholder" aria-hidden="true">🎁</div>
-          {% endif %}
-        </a>
+  {% if products|length == 0 %}
+    <div class="empty-state">
+      <div aria-hidden="true" class="empty-ic">🎁</div>
+      <h2 class="h2" style="margin:0 0 8px; font-weight: 600;">No products found</h2>
+      <p class="muted" style="max-width:520px; margin:0 auto 18px;">
+        Try adjusting your search or filters to find what you're looking for.
+      </p>
+      <a class="btn btn-primary" href="{{ url_for('web_products') }}">Clear Filters</a>
+    </div>
+  {% else %}
 
-        <div class="product-body">
-          <div class="product-meta">
-            {% if p.category %}
-              <span class="chip">{{ p.category.category_name }}</span>
+  <div class="grid products-grid product-catalog-grid">
+    {% for p in products %}
+      {% set out = (not p.is_available) or (p.stock <= 0) %}
+      {% set rating = product_ratings.get(p.id, {'avg_rating': 0.0, 'review_count': 0}) %}
+      <article class="card product-tile">
+        <div class="product-tile-media">
+          <a class="product-tile-link" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+            {% if p.image_url %}
+              <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
+            {% else %}
+              <div class="product-tile-placeholder" aria-hidden="true">🎁</div>
             {% endif %}
-            {% if not p.is_available or p.stock <= 0 %}
-              <span class="chip chip-danger">Out of stock</span>
-            {% endif %}
+          </a>
+
+          {# Featured badge (matches mock data behavior) #}
+          {% if loop.index in [1,2,4] %}
+            <span class="badge badge-featured">Featured</span>
+          {% endif %}
+
+          {% if out %}
+            <span class="badge badge-danger" style="top: 44px;">Out of Stock</span>
+          {% endif %}
+
+          <button
+            class="product-tile-add"
+            type="button"
+            onclick="addToCart({{ p.id }}, 1)"
+            {% if out %}disabled{% endif %}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z"></path>
+              <path d="M3 6h18"></path>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span>{{ "Out of Stock" if out else "Add to Cart" }}</span>
+          </button>
+        </div>
+
+        <div class="product-tile-info">
+          <a class="product-tile-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
+
+          <div class="product-tile-rating" aria-label="Average rating {{ '%.1f'|format(rating.avg_rating) }} out of 5">
+            {% set full = rating.avg_rating|round(0, 'floor')|int %}
+            <span class="stars" aria-hidden="true">
+              {% for i in range(5) %}
+                {% if i < full %}&#9733;{% else %}&#9734;{% endif %}
+              {% endfor %}
+            </span>
+            <span class="muted small" style="font-size: 0.7em;">({{ rating.review_count }})</span>
           </div>
 
-          <a class="product-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
-          <div class="product-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
-          <p class="muted small clamp-3">{{ p.description }}</p>
-
-          <div class="product-actions">
-            <a class="btn btn-outline" href="{{ url_for('web_product_detail', product_id=p.id) }}"style="width: 60px;">View</a>
-            <input type="number" min="1" max="{{ p.stock }}" value="1" class="input quantity-input" id="qty-{{ p.id }}" style="width: 80px;"
-              {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}
-            />
-            <button class="btn btn-primary" type="button" onclick="addToCart({{ p.id }}, document.getElementById('qty-{{ p.id }}').value)" {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}>
-              Add to cart
-            </button>
+          <div class="product-tile-bottom">
+            <div class="product-tile-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
+            <div class="product-tile-category">{{ p.category.category_name if p.category else "" }}</div>
           </div>
         </div>
       </article>
     {% endfor %}
   </div>
+  {% endif %}
+
 </section>
+
+<script>
+(function () {
+  const form = document.querySelector('form.products-filters');
+  if (!form) return;
+
+  const search = form.querySelector('input[name="search"]');
+  const selects = form.querySelectorAll('select');
+
+  // Auto-apply category/sort immediately
+  selects.forEach((sel) => sel.addEventListener('change', () => form.submit()));
+
+  // Debounced auto-apply for search
+  let t = null;
+  const submitSoon = () => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => form.submit(), 350);
+  };
+
+  if (search) {
+    search.addEventListener('input', submitSoon);
+    search.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        form.submit();
+      }
+    });
+  }
+})();
+</script>
+
 {% endblock %}
+

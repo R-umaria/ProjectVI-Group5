@@ -57,44 +57,87 @@
         </div>
 
         <form method="post" action="{{ url_for('checkout_shipping_post') }}" class="space-y-4">
+
+          <!-- Account name (from /account) -->
           <div class="grid sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium mb-1" for="first_name">First Name</label>
-              <input class="w-full rounded-lg border border-border px-3 py-2" id="first_name" name="first_name" value="{{ shipping.get('first_name','') }}" required />
+              <label class="block text-sm font-medium mb-1">First Name</label>
+              <div class="w-full rounded-lg border border-border px-3 py-2 bg-secondary/40 text-sm">{{ user.first_name }}</div>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1" for="last_name">Last Name</label>
-              <input class="w-full rounded-lg border border-border px-3 py-2" id="last_name" name="last_name" value="{{ shipping.get('last_name','') }}" required />
+              <label class="block text-sm font-medium mb-1">Last Name</label>
+              <div class="w-full rounded-lg border border-border px-3 py-2 bg-secondary/40 text-sm">{{ user.last_name }}</div>
+            </div>
+          </div>
+
+          <!-- Saved addresses -->
+          <div>
+            <label class="block text-sm font-medium mb-1" for="address_id">Saved Address</label>
+            {% if addresses and addresses|length > 0 %}
+              <select class="w-full rounded-lg border border-border px-3 py-2" id="address_id" name="address_id">
+                <option value="" {% if not shipping.get('address_id') %}selected{% endif %}>Custom (one-time)</option>
+                {% for a in addresses %}
+                  <option
+                    value="{{ a.id }}"
+                    data-street="{{ a.street_address|e }}"
+                    data-postal="{{ a.postal_code|e }}"
+                    data-country="{{ a.country|e }}"
+                    {% if shipping.get('address_id') == a.id %}selected{% endif %}
+                  >
+                    {{ (a.label or ('Address #' ~ a.id)) }} — {{ a.street_address }}
+                  </option>
+                {% endfor %}
+              </select>
+              <p class="mt-2 text-sm text-muted">
+                Manage saved addresses on <a class="underline" href="{{ url_for('web_account') }}">My Account</a>.
+              </p>
+            {% else %}
+              <div class="rounded-lg border border-border bg-secondary/30 p-4 text-sm">
+                You don’t have any saved addresses yet. Add one on
+                <a class="underline" href="{{ url_for('web_account') }}">My Account</a> to continue checkout.
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Address fields (only fields stored on /account) -->
+          <div>
+            <label class="block text-sm font-medium mb-1" for="street_address">Street Address</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="street_address" name="street_address" value="{{ shipping.get('street_address','') }}" {% if not addresses %}required{% else %}required{% endif %} />
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="postal_code">Postal Code</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="postal_code" name="postal_code" value="{{ shipping.get('postal_code','') }}" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="country">Country</label>
+              <select class="w-full rounded-lg border border-border px-3 py-2" id="country" name="country" required>
+                <option value="">Select Country</option>
+                <option value="CA" {% if shipping.get('country') == 'CA' %}selected{% endif %}>Canada</option>
+                <option value="US" {% if shipping.get('country') == 'US' %}selected{% endif %}>United States</option>
+                <option value="GB" {% if shipping.get('country') == 'GB' %}selected{% endif %}>United Kingdom</option>
+                <option value="DE" {% if shipping.get('country') == 'DE' %}selected{% endif %}>Germany</option>
+                <option value="TR" {% if shipping.get('country') == 'TR' %}selected{% endif %}>Turkey</option>
+                <option value="FR" {% if shipping.get('country') == 'FR' %}selected{% endif %}>France</option>
+              </select>
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-1" for="address">Street Address</label>
-            <input class="w-full rounded-lg border border-border px-3 py-2" id="address" name="address" value="{{ shipping.get('address','') }}" required />
-          </div>
-
-          <div class="grid sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1" for="city">City</label>
-              <input class="w-full rounded-lg border border-border px-3 py-2" id="city" name="city" value="{{ shipping.get('city','') }}" required />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1" for="state">State</label>
-              <input class="w-full rounded-lg border border-border px-3 py-2" id="state" name="state" value="{{ shipping.get('state','') }}" required />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1" for="zip_code">ZIP Code</label>
-              <input class="w-full rounded-lg border border-border px-3 py-2" id="zip_code" name="zip_code" value="{{ shipping.get('zip_code','') }}" required />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1" for="phone">Phone Number</label>
-            <input class="w-full rounded-lg border border-border px-3 py-2" id="phone" name="phone" value="{{ shipping.get('phone','') }}" required />
+            <label class="block text-sm font-medium mb-1" for="phone_number">Phone Number (Optional)</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="phone_number" name="phone_number" value="{{ shipping.get('phone_number','') }}" />
+            <p class="mt-2 text-sm text-muted">
+              Phone is saved/updated on <a class="underline" href="{{ url_for('web_account') }}">My Account</a>.
+            </p>
           </div>
 
           <div class="pt-2">
-            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-95">
+            <button
+              type="submit"
+              class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-95"
+
+            >
               Continue to Payment
             </button>
           </div>
@@ -130,5 +173,28 @@
     </div>
   </div>
 </div>
+
+
+<script>
+  (function() {
+    const sel = document.getElementById('address_id');
+    if (!sel) return;
+    function apply() {
+      const opt = sel.options[sel.selectedIndex];
+      if (!opt) return;
+      if (!opt.value) return; // Custom option
+      const street = opt.getAttribute('data-street') || '';
+      const postal = opt.getAttribute('data-postal') || '';
+      const country = opt.getAttribute('data-country') || '';
+      const streetEl = document.getElementById('street_address');
+      const postalEl = document.getElementById('postal_code');
+      const countryEl = document.getElementById('country');
+      if (streetEl) streetEl.value = street;
+      if (postalEl) postalEl.value = postal;
+      if (countryEl) countryEl.value = country;
+    }
+    sel.addEventListener('change', apply);
+  })();
+</script>
 
 {% endblock %}

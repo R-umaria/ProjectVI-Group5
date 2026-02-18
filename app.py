@@ -154,6 +154,28 @@ def create_app() -> Flask:
         products = q.limit(24).all()
         categories = Category.query.order_by(Category.category_name.asc()).all()
 
+        # Batch-load rating stats for visible products to avoid N+1 queries.
+        product_ids = [p.id for p in products]
+        product_ratings = {}
+        if product_ids:
+            rows = (
+                db.session.query(
+                    Review.product_id,
+                    db.func.avg(Review.rating).label("avg_rating"),
+                    db.func.count(Review.id).label("review_count"),
+                )
+                .filter(Review.product_id.in_(product_ids))
+                .group_by(Review.product_id)
+                .all()
+            )
+            product_ratings = {
+                int(r.product_id): {
+                    "avg_rating": float(r.avg_rating) if r.avg_rating is not None else 0.0,
+                    "review_count": int(r.review_count or 0),
+                }
+                for r in rows
+            }
+
         return render_template(
             "products.html",
             products=products,
@@ -161,6 +183,7 @@ def create_app() -> Flask:
             search=search,
             category=category,
             sort=sort,
+            product_ratings=product_ratings,
         )
 
     @app.get("/products/<int:product_id>")
@@ -180,11 +203,38 @@ def create_app() -> Flask:
         )
         avg_rating = float(avg_rating) if avg_rating is not None else 0.0
 
+        # UI helpers (kept lightweight; no DB schema changes)
+        current_uid = session.get("user_id")
+        has_user_reviewed = bool(current_uid) and any(r.user_id == current_uid for r in reviews)
+
+        # Optional "What's inside" list: allow authors to encode list-like descriptions.
+        # Only render when it looks like an actual list (>= 2 items) to avoid noisy UI.
+        inside_items = []
+        display_description = product.description
+        raw_desc = (product.description or "").strip()
+        if "\n" in raw_desc:
+            parts = [p.strip(" \t-•") for p in raw_desc.splitlines() if p.strip()]
+            if len(parts) >= 2:
+                display_description = parts[0]
+                inside_items = parts[1:]
+        elif ";" in raw_desc:
+            parts = [p.strip() for p in raw_desc.split(";") if p.strip()]
+            if len(parts) >= 3:
+                display_description = parts[0]
+                inside_items = parts[1:]
+
+        # Matches the products page mock behavior (a few items appear as Featured).
+        is_featured = product.id in (1, 2, 4)
+
         return render_template(
             "product_detail.html",
             product=product,
             reviews=reviews,
             avg_rating=avg_rating,
+            has_user_reviewed=has_user_reviewed,
+            inside_items=inside_items,
+            is_featured=is_featured,
+            display_description=display_description,
         )
 
     @app.post("/products/<int:product_id>/reviews")
@@ -233,6 +283,25 @@ def create_app() -> Flask:
     # --- Checkout flow (Module 4) ---
     CHECKOUT_TAX_RATE = 0.13
 
+    def _normalize_shipping(shipping: dict | None, user: User) -> dict:
+        """Normalize shipping dict keys and apply defaults from the user's account."""
+        s = dict(shipping or {})
+
+        # Backward-compat for older session keys (before address book integration)
+        if "address" in s and "street_address" not in s:
+            s["street_address"] = s.get("address")
+        if "zip_code" in s and "postal_code" not in s:
+            s["postal_code"] = s.get("zip_code")
+        if "phone" in s and "phone_number" not in s:
+            s["phone_number"] = s.get("phone")
+
+        # Defaults from account
+        s.setdefault("first_name", user.first_name)
+        s.setdefault("last_name", user.last_name)
+        s.setdefault("phone_number", user.phone_number or "")
+
+        return s
+
     def _cart_snapshot_for_user(user_id: int):
         """Return (items, summary) for the current user's cart."""
         items = CartItem.query.filter_by(user_id=user_id).all()
@@ -276,12 +345,36 @@ def create_app() -> Flask:
             flash("Your cart is empty.", "info")
             return redirect(url_for("web_cart"))
 
-        shipping = session.get("checkout_shipping") or {}
+        addresses = (
+            Address.query.filter_by(user_id=user.id)
+            .order_by(Address.id.desc())
+            .all()
+        )
+
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+
+        # Prefill from the most-recent saved address if shipping isn't set yet.
+        if not shipping.get("street_address") and addresses:
+            a = addresses[0]
+            shipping.update(
+                {
+                    "address_id": a.id,
+                    "street_address": a.street_address,
+                    "postal_code": a.postal_code,
+                    "country": a.country,
+                }
+            )
+
+        # Persist normalized/prefilled data so the next steps (payment/review) are consistent.
+        session["checkout_shipping"] = shipping
+
         return render_template(
             "checkout_shipping.html",
             items=items,
             summary=summary,
             shipping=shipping,
+            addresses=addresses,
+            user=user,
         )
 
     @app.post("/checkout/shipping")
@@ -295,20 +388,40 @@ def create_app() -> Flask:
         def get(name: str) -> str:
             return (request.form.get(name) or "").strip()
 
+        # Optional: user selects a saved address; we still allow editing the fields for this checkout.
+        selected_address = None
+        address_id_raw = get("address_id")
+        if address_id_raw:
+            try:
+                address_id = int(address_id_raw)
+            except Exception:
+                address_id = None
+
+            if address_id is not None:
+                selected_address = Address.query.filter_by(id=address_id, user_id=user.id).first()
+                if not selected_address:
+                    flash("Selected address not found.", "error")
+                    return redirect(url_for("checkout_shipping"))
+
+        street_address = get("street_address") or (selected_address.street_address if selected_address else "")
+        postal_code = get("postal_code") or (selected_address.postal_code if selected_address else "")
+        country = get("country") or (selected_address.country if selected_address else "")
+        phone_number = get("phone_number") or (user.phone_number or "")
+
         shipping = {
-            "first_name": get("first_name"),
-            "last_name": get("last_name"),
-            "address": get("address"),
-            "city": get("city"),
-            "state": get("state"),
-            "zip_code": get("zip_code"),
-            "phone": get("phone"),
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "address_id": selected_address.id if selected_address else None,
+            "street_address": street_address,
+            "postal_code": postal_code,
+            "country": country,
+            "phone_number": phone_number,
         }
 
-        required = ["first_name", "last_name", "address", "city", "state", "zip_code", "phone"]
+        required = ["street_address", "postal_code", "country"]
         missing = [k for k in required if not shipping.get(k)]
         if missing:
-            flash("Please fill in all shipping fields.", "error")
+            flash("Please select a saved address (or fill the address fields).", "error")
             session["checkout_shipping"] = shipping
             return redirect(url_for("checkout_shipping"))
 
@@ -394,9 +507,10 @@ def create_app() -> Flask:
             flash("Your cart is empty.", "info")
             return redirect(url_for("web_cart"))
 
-        shipping = session.get("checkout_shipping")
-        if not shipping:
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+        if not shipping.get("street_address") or not shipping.get("postal_code") or not shipping.get("country"):
             return redirect(url_for("checkout_shipping"))
+        session["checkout_shipping"] = shipping
 
         payment_method_id = session.get("checkout_payment_method_id")
         if not payment_method_id:
