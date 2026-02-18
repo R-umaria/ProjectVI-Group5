@@ -73,20 +73,20 @@
     </div>
   {% else %}
 
-  <div class="grid products-grid v0-grid">
+  <div class="grid products-grid product-catalog-grid">
     {% for p in products %}
       {% set out = (not p.is_available) or (p.stock <= 0) %}
-      <article class="card v0-card">
-        <div class="v0-media">
-          <a class="v0-link" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+      <article class="card product-tile">
+        <div class="product-tile-media">
+          <a class="product-tile-link" href="{{ url_for('web_product_detail', product_id=p.id) }}">
             {% if p.image_url %}
               <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
             {% else %}
-              <div class="v0-placeholder" aria-hidden="true">🎁</div>
+              <div class="product-tile-placeholder" aria-hidden="true">🎁</div>
             {% endif %}
           </a>
 
-          {# Featured badge (matches v0 mock data behavior) #}
+          {# Featured badge (matches mock data behavior) #}
           {% if loop.index in [1,2,4] %}
             <span class="badge badge-featured">Featured</span>
           {% endif %}
@@ -96,7 +96,7 @@
           {% endif %}
 
           <button
-            class="v0-add"
+            class="product-tile-add"
             type="button"
             onclick="addToCart({{ p.id }}, 1)"
             {% if out %}disabled{% endif %}
@@ -109,17 +109,17 @@
           </button>
         </div>
 
-        <div class="v0-info">
-          <a class="v0-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
+        <div class="product-tile-info">
+          <a class="product-tile-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
 
-          <div class="v0-rating" aria-label="Product rating">
+          <div class="product-tile-rating" aria-label="Product rating">
             <span class="stars" aria-hidden="true">★★★★☆</span>
             <span class="muted small">({{ 80 + ((p.id * 17) % 180) }})</span>
           </div>
 
-          <div class="v0-bottom">
-            <div class="v0-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
-            <div class="v0-cat">{{ p.category.category_name if p.category else "" }}</div>
+          <div class="product-tile-bottom">
+            <div class="product-tile-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
+            <div class="product-tile-category">{{ p.category.category_name if p.category else "" }}</div>
           </div>
         </div>
       </article>
@@ -160,3 +160,4 @@
 </script>
 
 {% endblock %}
+
