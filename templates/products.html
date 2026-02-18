@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Shop - BoxedWithLove{% endblock %}
+{% block main_class %} products-container{% endblock %}
 
 {% block content %}
 <section class="page products-page">
@@ -7,11 +8,10 @@
   {# determine if any filters are active (controls clear visibility) #}
   {% set has_active = (search|length > 0) or (category|length > 0) or (sort and sort != 'popular') %}
 
-  <!-- Hero strip (v0-style) -->
-  <section class="cart-header full-bleed" aria-labelledby="cart-title">
-  <div class="wrap">
-        <h1 class="h1" style="margin-bottom:4px;">{{ category if category else 'Shop All' }}</h1>
-        <div class="muted">{{ products|length }} products found</div>
+  <section class="products-header full-bleed" aria-labelledby="products-title">
+    <div class="wrap">
+      <h1 id="products-title" class="products-title" style="font-weight: 500;">{{ category if category else 'Shop All' }}</h1>
+      <div class="muted products-count">{{ products|length }} products found</div>
     </div>
   </section>
 
@@ -131,22 +131,37 @@
 
 <style>
 /* Products page (v0-aligned tweaks) */
+.container.products-container {
+  padding: 0 16px 18px;
+}
+
 .products-page { padding-top: 0; }
 
-/* Full-bleed hero strip but keep content aligned to container */
-.products-page .products-hero{
-  background: var(--secondary);
+/* Same header strip pattern as cart page */
+.products-page .products-header {
+  background: rgba(243, 234, 220, 0.30);
   border-bottom: 1px solid var(--border);
-  padding: 26px 0;
-  margin: -12px 0 18px; /* negate .page top padding to match screenshot */
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-  width: 100vw;
-  padding-left: calc(50vw - 50%);
-  padding-right: calc(50vw - 50%);
+  margin-bottom: 18px;
+}
+
+.products-page .products-header .wrap {
+  padding: 26px 16px;
+}
+
+.products-page .products-title {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.products-page .products-count {
+  margin-top: 4px;
+}
+
+@media (max-width: 520px) {
+  .products-page .products-title { font-size: 32px; }
 }
 
 /* Remove the old "boxed" filters background on this page only */
