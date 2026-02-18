@@ -44,7 +44,7 @@
       <h1 class="product-title">{{ product.name }}</h1>
 
       <div class="product-rating-line" aria-label="Average rating {{ '%.1f'|format(avg_rating) }} out of 5">
-        {% set full = avg_rating|round(0, 'half_even')|int %}
+        {% set full = avg_rating|round|int %}
         <span class="stars" aria-hidden="true">
           {% for i in range(5) %}{% if i < full %}&#9733;{% else %}&#9734;{% endif %}{% endfor %}
         </span>
@@ -121,7 +121,7 @@
       </div>
 
       {% if reviews|length > 0 %}
-        {% set rounded = avg_rating|round(0, 'half_even')|int %}
+        {% set rounded = avg_rating|round|int %}
         <div class="reviews-summary" aria-label="{{ '%.1f'|format(avg_rating) }} average rating">
           <span class="stars" aria-hidden="true">
             {% for i in range(5) %}{% if i < rounded %}&#9733;{% else %}&#9734;{% endif %}{% endfor %}
