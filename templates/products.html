@@ -2,17 +2,31 @@
 {% block title %}Shop - BoxedWithLove{% endblock %}
 
 {% block content %}
-<section class="page">
-  <div class="page-row">
-    <h1 class="h1">Shop All</h1>
-    <a class="btn btn-secondary" href="{{ url_for('web_products') }}">Clear</a>
-  </div>
+<section class="page products-page">
 
-  <form class="filters" method="get" action="{{ url_for('web_products') }}">
+  {# determine if any filters are active (controls clear visibility) #}
+  {% set has_active = (search|length > 0) or (category|length > 0) or (sort and sort != 'popular') %}
+
+  <!-- Hero strip (v0-style) -->
+  <section class="cart-header full-bleed" aria-labelledby="cart-title">
+  <div class="wrap">
+        <h1 class="h1" style="margin-bottom:4px;">{{ category if category else 'Shop All' }}</h1>
+        <div class="muted">{{ products|length }} products found</div>
+    </div>
+  </section>
+
+  <!-- Filters (auto-apply; no Apply button) -->
+  <form class="filters products-filters" method="get" action="{{ url_for('web_products') }}">
     <div class="filters-left">
-      <label class="field">
+      <label class="field" style="width:100%;">
         <span class="field-label">Search</span>
-        <input class="input" name="search" type="search" placeholder="Search gift baskets..." value="{{ search }}" />
+        <div class="searchbox">
+          <svg class="search-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input class="input" name="search" type="search" placeholder="Search products..." value="{{ search }}" />
+        </div>
       </label>
     </div>
 
@@ -20,7 +34,7 @@
       <label class="field">
         <span class="field-label">Category</span>
         <select class="select" name="category">
-          <option value="">All</option>
+          <option value="">All Categories</option>
           {% for c in categories %}
             <option value="{{ c.category_name }}" {% if category and category.lower() == c.category_name.lower() %}selected{% endif %}>{{ c.category_name }}</option>
           {% endfor %}
@@ -37,49 +51,318 @@
         </select>
       </label>
 
-      <button class="btn btn-primary btn-lg" type="submit">Apply</button>
+      {% if has_active %}
+        <a class="clear-link" href="{{ url_for('web_products') }}" aria-label="Clear filters">
+          <span aria-hidden="true" class="clear-x">×</span>
+          <span>Clear</span>
+        </a>
+      {% endif %}
     </div>
   </form>
 
   <p id="add-msg" class="muted" aria-live="polite"></p>
 
-  <div class="grid products-grid">
-    {% for p in products %}
-      <article class="card product-card">
-        <a class="product-img" href="{{ url_for('web_product_detail', product_id=p.id) }}">
-          {% if p.image_url %}
-            <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
-          {% else %}
-            <div class="product-placeholder" aria-hidden="true">🎁</div>
-          {% endif %}
-        </a>
+  {% if products|length == 0 %}
+    <div class="empty-state">
+      <div aria-hidden="true" class="empty-ic">🎁</div>
+      <h2 class="h2" style="margin:0 0 8px; font-weight: 600;">No products found</h2>
+      <p class="muted" style="max-width:520px; margin:0 auto 18px;">
+        Try adjusting your search or filters to find what you're looking for.
+      </p>
+      <a class="btn btn-primary" href="{{ url_for('web_products') }}">Clear Filters</a>
+    </div>
+  {% else %}
 
-        <div class="product-body">
-          <div class="product-meta">
-            {% if p.category %}
-              <span class="chip">{{ p.category.category_name }}</span>
+  <div class="grid products-grid v0-grid">
+    {% for p in products %}
+      {% set out = (not p.is_available) or (p.stock <= 0) %}
+      <article class="card v0-card">
+        <div class="v0-media">
+          <a class="v0-link" href="{{ url_for('web_product_detail', product_id=p.id) }}">
+            {% if p.image_url %}
+              <img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy" />
+            {% else %}
+              <div class="v0-placeholder" aria-hidden="true">🎁</div>
             {% endif %}
-            {% if not p.is_available or p.stock <= 0 %}
-              <span class="chip chip-danger">Out of stock</span>
-            {% endif %}
+          </a>
+
+          {# Featured badge (matches v0 mock data behavior) #}
+          {% if loop.index in [1,2,4] %}
+            <span class="badge badge-featured">Featured</span>
+          {% endif %}
+
+          {% if out %}
+            <span class="badge badge-danger" style="top: 44px;">Out of Stock</span>
+          {% endif %}
+
+          <button
+            class="v0-add"
+            type="button"
+            onclick="addToCart({{ p.id }}, 1)"
+            {% if out %}disabled{% endif %}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 8h12l-1 12H7L6 8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M9 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span>{{ "Out of Stock" if out else "Add to Cart" }}</span>
+          </button>
+        </div>
+
+        <div class="v0-info">
+          <a class="v0-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
+
+          <div class="v0-rating" aria-label="Product rating">
+            <span class="stars" aria-hidden="true">★★★★☆</span>
+            <span class="muted small">({{ 80 + ((p.id * 17) % 180) }})</span>
           </div>
 
-          <a class="product-title" href="{{ url_for('web_product_detail', product_id=p.id) }}">{{ p.name }}</a>
-          <div class="product-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
-          <p class="muted small clamp-3">{{ p.description }}</p>
-
-          <div class="product-actions">
-            <a class="btn btn-outline" href="{{ url_for('web_product_detail', product_id=p.id) }}"style="width: 60px;">View</a>
-            <input type="number" min="1" max="{{ p.stock }}" value="1" class="input quantity-input" id="qty-{{ p.id }}" style="width: 80px;"
-              {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}
-            />
-            <button class="btn btn-primary" type="button" onclick="addToCart({{ p.id }}, document.getElementById('qty-{{ p.id }}').value)" {% if (not p.is_available) or (p.stock <= 0) %}disabled{% endif %}>
-              Add to cart
-            </button>
+          <div class="v0-bottom">
+            <div class="v0-price">${{ "%.2f"|format(p.price_cents/100) }}</div>
+            <div class="v0-cat">{{ p.category.category_name if p.category else "" }}</div>
           </div>
         </div>
       </article>
     {% endfor %}
   </div>
+  {% endif %}
+
 </section>
+
+<style>
+/* Products page (v0-aligned tweaks) */
+.products-page { padding-top: 0; }
+
+/* Full-bleed hero strip but keep content aligned to container */
+.products-page .products-hero{
+  background: var(--secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 26px 0;
+  margin: -12px 0 18px; /* negate .page top padding to match screenshot */
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  width: 100vw;
+  padding-left: calc(50vw - 50%);
+  padding-right: calc(50vw - 50%);
+}
+
+/* Remove the old "boxed" filters background on this page only */
+.products-page .products-filters{
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0 0 16px;
+}
+.products-page .products-filters .field-label{ display:none; }
+
+/* Search with icon */
+.products-page .searchbox{ position: relative; }
+.products-page .searchbox .search-ic{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform: translateY(-50%);
+  color: rgba(47,36,31,0.55);
+}
+.products-page .searchbox input{ padding-left: 42px; }
+
+/* Clear link only when active */
+.products-page .clear-link{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  color: var(--foreground);
+  text-decoration:none;
+  user-select:none;
+}
+.products-page .clear-link:hover{ background: rgba(47,36,31,0.05); }
+.products-page .clear-x{ font-size: 18px; line-height: 1; }
+
+/* Grid spacing */
+.products-page .v0-grid{ margin-top: 10px; }
+
+/* Card */
+.products-page .v0-card{
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.products-page .v0-card:hover,
+.products-page .v0-card:focus-within{
+  box-shadow: 0 18px 44px rgba(0,0,0,0.10);
+  transform: translateY(-2px);
+}
+
+/* Media */
+.products-page .v0-media{
+  position: relative;
+  background: var(--secondary);
+  height: 260px;
+}
+.products-page .v0-link{
+  display:block;
+  width:100%;
+  height:100%;
+}
+.products-page .v0-media img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+}
+.products-page .v0-placeholder{
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 56px;
+  opacity: .55;
+}
+
+/* Badges (explicit; do NOT rely on .chip due to global CSS overlap) */
+.products-page .badge{
+  position:absolute;
+  top: 12px;
+  left: 12px;
+  display:inline-flex;
+  align-items:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(243,166,77,0.35);
+  background: rgba(243,166,77,0.22);
+  color: #7a3b00;
+}
+.products-page .badge-danger{
+  border-color: rgba(180,35,24,0.20);
+  background: rgba(180,35,24,0.08);
+  color: #b42318;
+}
+
+/* Hover add button (shown on hover only) */
+.products-page .v0-add{
+  position:absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(47,36,31,0.12);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 700;
+  cursor: pointer;
+
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease, background .16s ease;
+}
+.products-page .v0-add:hover{ background: var(--primary-hover); }
+.products-page .v0-card:hover .v0-add,
+.products-page .v0-card:focus-within .v0-add{
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.products-page .v0-add:disabled{
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Info */
+.products-page .v0-info{
+  padding: 14px;
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.products-page .v0-title{
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--foreground);
+  text-decoration: none;
+}
+.products-page .v0-title:hover{ text-decoration: underline; }
+.products-page .v0-rating{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+.products-page .stars{
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-size: 14px;
+}
+.products-page .v0-bottom{
+  display:flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.products-page .v0-price{
+  font-weight: 800;
+  font-size: 20px;
+}
+.products-page .v0-cat{
+  font-size: 13px;
+  color: rgba(47,36,31,0.65);
+}
+
+/* Empty state */
+.products-page .empty-state{
+  text-align:center;
+  padding: 72px 16px;
+}
+.products-page .empty-ic{
+  font-size:64px;
+  line-height:1;
+  margin-bottom:10px;
+  opacity:0.3;
+}
+
+</style>
+
+<script>
+(function () {
+  const form = document.querySelector('form.products-filters');
+  if (!form) return;
+
+  const search = form.querySelector('input[name="search"]');
+  const selects = form.querySelectorAll('select');
+
+  // Auto-apply category/sort immediately
+  selects.forEach((sel) => sel.addEventListener('change', () => form.submit()));
+
+  // Debounced auto-apply for search
+  let t = null;
+  const submitSoon = () => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => form.submit(), 350);
+  };
+
+  if (search) {
+    search.addEventListener('input', submitSoon);
+    search.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        form.submit();
+      }
+    });
+  }
+})();
+</script>
+
 {% endblock %}
