@@ -203,11 +203,38 @@ def create_app() -> Flask:
         )
         avg_rating = float(avg_rating) if avg_rating is not None else 0.0
 
+        # UI helpers (kept lightweight; no DB schema changes)
+        current_uid = session.get("user_id")
+        has_user_reviewed = bool(current_uid) and any(r.user_id == current_uid for r in reviews)
+
+        # Optional "What's inside" list: allow authors to encode list-like descriptions.
+        # Only render when it looks like an actual list (>= 2 items) to avoid noisy UI.
+        inside_items = []
+        display_description = product.description
+        raw_desc = (product.description or "").strip()
+        if "\n" in raw_desc:
+            parts = [p.strip(" \t-•") for p in raw_desc.splitlines() if p.strip()]
+            if len(parts) >= 2:
+                display_description = parts[0]
+                inside_items = parts[1:]
+        elif ";" in raw_desc:
+            parts = [p.strip() for p in raw_desc.split(";") if p.strip()]
+            if len(parts) >= 3:
+                display_description = parts[0]
+                inside_items = parts[1:]
+
+        # Matches the products page mock behavior (a few items appear as Featured).
+        is_featured = product.id in (1, 2, 4)
+
         return render_template(
             "product_detail.html",
             product=product,
             reviews=reviews,
             avg_rating=avg_rating,
+            has_user_reviewed=has_user_reviewed,
+            inside_items=inside_items,
+            is_featured=is_featured,
+            display_description=display_description,
         )
 
     @app.post("/products/<int:product_id>/reviews")
