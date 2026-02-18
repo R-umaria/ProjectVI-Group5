@@ -1,16 +1,133 @@
+// Shared UI helpers: toast notifications + navbar cart badge updates
+function ensureToastRoot() {
+  let root = document.getElementById("toast-root");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "toast-root";
+    root.className = "toast-root";
+    root.setAttribute("aria-live", "polite");
+    root.setAttribute("aria-atomic", "true");
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
+function showToast(message, variant = "success", opts = {}) {
+  const { duration = 3000 } = opts;
+  const root = ensureToastRoot();
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${variant}`;
+  toast.setAttribute("role", "status");
+
+  const msg = document.createElement("div");
+  msg.className = "toast-msg";
+  msg.textContent = message;
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.textContent = "×";
+
+  toast.appendChild(msg);
+  toast.appendChild(close);
+  root.appendChild(toast);
+
+  // Animate in
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  let removed = false;
+  const remove = () => {
+    if (removed) return;
+    removed = true;
+    toast.classList.remove("show");
+    // Allow transition to finish
+    setTimeout(() => toast.remove(), 220);
+  };
+
+  close.addEventListener("click", remove);
+
+  if (duration && duration > 0) {
+    setTimeout(remove, duration);
+  }
+}
+
+function getNavCartBadge() {
+  let badge = document.getElementById("navCartBadge");
+  if (badge) return badge;
+
+  // Fallback: create it if base template didn't render it for some reason
+  const cartBtn = document.querySelector("a.cartbtn");
+  if (!cartBtn) return null;
+
+  badge = document.createElement("span");
+  badge.id = "navCartBadge";
+  badge.className = "badge";
+  badge.dataset.count = "0";
+  badge.style.display = "none";
+  badge.setAttribute("aria-label", "0 items in cart");
+  cartBtn.appendChild(badge);
+  return badge;
+}
+
+function setNavCartCount(count) {
+  const badge = getNavCartBadge();
+  if (!badge) return;
+
+  const c = Math.max(0, parseInt(count || 0, 10) || 0);
+  badge.dataset.count = String(c);
+  badge.textContent = c > 9 ? "9+" : String(c);
+  badge.setAttribute("aria-label", `${c} items in cart`);
+  badge.style.display = c > 0 ? "" : "none";
+}
+
+function bumpNavCartCount(delta) {
+  const badge = getNavCartBadge();
+  const current = parseInt(badge?.dataset?.count || "0", 10) || 0;
+  const d = parseInt(delta || 0, 10) || 0;
+  setNavCartCount(current + d);
+}
+
+async function refreshNavCartCount() {
+  try {
+    const res = await fetch("/api/cart", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const count = (data.items || []).reduce((sum, it) => sum + (parseInt(it.quantity || 0, 10) || 0), 0);
+    setNavCartCount(count);
+  } catch (_) {
+    // ignore
+  }
+}
+
 async function addToCart(productId, quantity) {
+  const qty = parseInt(quantity || 1, 10) || 1;
+
   const res = await fetch("/api/cart/items", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({product_id: productId, quantity: parseInt(quantity || 1)})
+    credentials: "same-origin",
+    body: JSON.stringify({product_id: productId, quantity: qty})
   });
+
   const msg = document.getElementById("add-msg");
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    msg.textContent = (data.error && data.error.message) ? data.error.message : "Failed to add to cart";
+    const errMsg = (data.error && data.error.message) ? data.error.message : "Failed to add to cart";
+    if (msg) msg.textContent = errMsg;
+    showToast(errMsg, "error", { duration: 4000 });
     return;
   }
-  msg.textContent = "Added to cart.";
+
+  // Immediate UI feedback
+  if (msg) msg.textContent = "Added to cart.";
+  showToast("Added to cart", "success");
+
+  // Update navbar badge instantly, then reconcile with server
+  bumpNavCartCount(qty);
+  refreshNavCartCount();
 }
 
 async function updateQty(itemId, qty) {
@@ -18,30 +135,35 @@ async function updateQty(itemId, qty) {
   const res = await fetch(`/api/cart/items/${itemId}`, {
     method: "PATCH",
     headers: {"Content-Type": "application/json"},
+    credentials: "same-origin",
     body: JSON.stringify({quantity: qty})
   });
   if (res.ok) window.location.reload();
 }
 
 async function removeItem(itemId) {
-  const res = await fetch(`/api/cart/items/${itemId}`, {method: "DELETE"});
+  const res = await fetch(`/api/cart/items/${itemId}`, {method: "DELETE", credentials: "same-origin"});
   if (res.ok) window.location.reload();
 }
 
 async function placeOrder() {
   const res = await fetch("/api/orders", {
-    method: "POST"//,
-    // headers: { "Content-Type": "application/json" },
-    // body: JSON.stringify({}),
-    // credentials: "same-origin"
-  }); // Might have to add headers/body/credentials later if any issues arise
+    method: "POST",
+    credentials: "same-origin"
+  });
   const el = document.getElementById("order-msg");
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    el.textContent = (data.error && data.error.message) ? data.error.message : "Checkout failed";
+    const errMsg = (data.error && data.error.message) ? data.error.message : "Checkout failed";
+    if (el) el.textContent = errMsg;
+    showToast(errMsg, "error", { duration: 5000 });
     return;
   }
-  el.textContent = `Order placed! Order ID: ${data.id}`;
+  if (el) el.textContent = `Order placed! Order ID: ${data.id}`;
+  showToast("Order placed successfully", "success");
+  // Cart will be cleared server-side; update badge
+  setNavCartCount(0);
+  refreshNavCartCount();
 }
 
 // --- Product detail helpers (UI only; no API changes) ---

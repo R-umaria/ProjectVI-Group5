@@ -60,9 +60,7 @@
             <path d="M3 6h18"></path>
             <path d="M16 10a4 4 0 0 1-8 0"></path>
           </svg>
-          {% if nav_cart_count and nav_cart_count > 0 %}
-            <span class="badge" aria-label="{{ nav_cart_count }} items in cart">{{ '9+' if nav_cart_count > 9 else nav_cart_count }}</span>
-          {% endif %}
+          <span id="navCartBadge" class="badge" data-count="{{ nav_cart_count or 0 }}" aria-label="{{ (nav_cart_count or 0) }} items in cart" {% if not nav_cart_count or nav_cart_count <= 0 %}style="display:none"{% endif %}>{{ '9+' if nav_cart_count > 9 else (nav_cart_count or 0) }}</span>
         </a>
       </div>
     </nav>
@@ -119,6 +117,8 @@
       </div>
     </div>
   </footer>
+
+  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
 
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
 
