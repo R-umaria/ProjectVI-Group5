@@ -283,6 +283,25 @@ def create_app() -> Flask:
     # --- Checkout flow (Module 4) ---
     CHECKOUT_TAX_RATE = 0.13
 
+    def _normalize_shipping(shipping: dict | None, user: User) -> dict:
+        """Normalize shipping dict keys and apply defaults from the user's account."""
+        s = dict(shipping or {})
+
+        # Backward-compat for older session keys (before address book integration)
+        if "address" in s and "street_address" not in s:
+            s["street_address"] = s.get("address")
+        if "zip_code" in s and "postal_code" not in s:
+            s["postal_code"] = s.get("zip_code")
+        if "phone" in s and "phone_number" not in s:
+            s["phone_number"] = s.get("phone")
+
+        # Defaults from account
+        s.setdefault("first_name", user.first_name)
+        s.setdefault("last_name", user.last_name)
+        s.setdefault("phone_number", user.phone_number or "")
+
+        return s
+
     def _cart_snapshot_for_user(user_id: int):
         """Return (items, summary) for the current user's cart."""
         items = CartItem.query.filter_by(user_id=user_id).all()
@@ -326,12 +345,36 @@ def create_app() -> Flask:
             flash("Your cart is empty.", "info")
             return redirect(url_for("web_cart"))
 
-        shipping = session.get("checkout_shipping") or {}
+        addresses = (
+            Address.query.filter_by(user_id=user.id)
+            .order_by(Address.id.desc())
+            .all()
+        )
+
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+
+        # Prefill from the most-recent saved address if shipping isn't set yet.
+        if not shipping.get("street_address") and addresses:
+            a = addresses[0]
+            shipping.update(
+                {
+                    "address_id": a.id,
+                    "street_address": a.street_address,
+                    "postal_code": a.postal_code,
+                    "country": a.country,
+                }
+            )
+
+        # Persist normalized/prefilled data so the next steps (payment/review) are consistent.
+        session["checkout_shipping"] = shipping
+
         return render_template(
             "checkout_shipping.html",
             items=items,
             summary=summary,
             shipping=shipping,
+            addresses=addresses,
+            user=user,
         )
 
     @app.post("/checkout/shipping")
@@ -345,20 +388,40 @@ def create_app() -> Flask:
         def get(name: str) -> str:
             return (request.form.get(name) or "").strip()
 
+        # Optional: user selects a saved address; we still allow editing the fields for this checkout.
+        selected_address = None
+        address_id_raw = get("address_id")
+        if address_id_raw:
+            try:
+                address_id = int(address_id_raw)
+            except Exception:
+                address_id = None
+
+            if address_id is not None:
+                selected_address = Address.query.filter_by(id=address_id, user_id=user.id).first()
+                if not selected_address:
+                    flash("Selected address not found.", "error")
+                    return redirect(url_for("checkout_shipping"))
+
+        street_address = get("street_address") or (selected_address.street_address if selected_address else "")
+        postal_code = get("postal_code") or (selected_address.postal_code if selected_address else "")
+        country = get("country") or (selected_address.country if selected_address else "")
+        phone_number = get("phone_number") or (user.phone_number or "")
+
         shipping = {
-            "first_name": get("first_name"),
-            "last_name": get("last_name"),
-            "address": get("address"),
-            "city": get("city"),
-            "state": get("state"),
-            "zip_code": get("zip_code"),
-            "phone": get("phone"),
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "address_id": selected_address.id if selected_address else None,
+            "street_address": street_address,
+            "postal_code": postal_code,
+            "country": country,
+            "phone_number": phone_number,
         }
 
-        required = ["first_name", "last_name", "address", "city", "state", "zip_code", "phone"]
+        required = ["street_address", "postal_code", "country"]
         missing = [k for k in required if not shipping.get(k)]
         if missing:
-            flash("Please fill in all shipping fields.", "error")
+            flash("Please select a saved address (or fill the address fields).", "error")
             session["checkout_shipping"] = shipping
             return redirect(url_for("checkout_shipping"))
 
@@ -444,9 +507,10 @@ def create_app() -> Flask:
             flash("Your cart is empty.", "info")
             return redirect(url_for("web_cart"))
 
-        shipping = session.get("checkout_shipping")
-        if not shipping:
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+        if not shipping.get("street_address") or not shipping.get("postal_code") or not shipping.get("country"):
             return redirect(url_for("checkout_shipping"))
+        session["checkout_shipping"] = shipping
 
         payment_method_id = session.get("checkout_payment_method_id")
         if not payment_method_id:
