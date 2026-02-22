@@ -260,8 +260,13 @@
           return;
         }
 
-        // Insert new method at top, select it
-        const m = data.item;
+        // API currently returns the payment method object directly (legacy) or wrapped as {item: ...}.
+        // Support both shapes to avoid false "Network error" after a successful POST.
+        const m = (data && (data.item || data.payment_method)) || data;
+        if (!m || !m.id) {
+          err.textContent = 'Unexpected server response while adding payment method.';
+          return;
+        }
         const list = document.getElementById('paymentList');
 
         const wrapper = document.createElement('label');
