@@ -585,6 +585,17 @@ def create_app() -> Flask:
         if exp_year < year_now - 1 or exp_year > year_now + 25:
             return bad("Exp year is out of allowed range.")
 
+        # Prevent duplicates for this user (same brand/last4/expiry)
+        dup = PaymentMethod.query.filter_by(
+            user_id=user.id,
+            brand=brand,
+            last4=last4,
+            exp_month=exp_month,
+            exp_year=exp_year,
+        ).first()
+        if dup:
+            return bad("That payment method is already saved.")
+
         pm = PaymentMethod(
             user_id=user.id,
             cardholder_name=cardholder_name,
@@ -800,6 +811,24 @@ def create_app() -> Flask:
                         for stmt in ddl:
                             conn.exec_driver_sql(stmt)
                     print("DB schema compatibility updates applied to products table.")
+
+            # Add a unique index to prevent duplicate payment methods per user
+            # (same brand + last4 + expiry). This is safe for Postgres and SQLite.
+            if "payment_methods" in table_names:
+                existing_indexes = {i.get("name") for i in inspector.get_indexes("payment_methods")}
+                if "ux_payment_methods_user_card" not in existing_indexes:
+                    stmt = (
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_methods_user_card "
+                        "ON payment_methods (user_id, brand, last4, exp_month, exp_year)"
+                    )
+                    try:
+                        with db.engine.begin() as conn:
+                            conn.exec_driver_sql(stmt)
+                        print("DB schema compatibility updates applied to payment_methods table.")
+                    except Exception:
+                        # If duplicates already exist, index creation can fail.
+                        # The API/UI layer also blocks duplicates going forward.
+                        print("Warning: could not create unique index for payment_methods (duplicates may already exist).")
         print("DB initialized (tables created).")
 
     @app.cli.command("seed")

@@ -130,5 +130,16 @@ class PaymentMethod(db.Model):
     user = db.relationship("User", lazy="joined")
 
     __table_args__ = (
+        # Prevent duplicate stored payment methods per user (same brand/last4/expiry).
+        # Note: this is a lightweight fingerprint for the course project (non-PCI).
+        db.Index(
+            "ux_payment_methods_user_card",
+            "user_id",
+            "brand",
+            "last4",
+            "exp_month",
+            "exp_year",
+            unique=True,
+        ),
         db.Index("ix_payment_methods_user_default", "user_id", "is_default"),
     )
