@@ -56,3 +56,6 @@ public/build/
 Thumbs.db
 .vscode/
 .idea/
+
+# Doxygen
+docs/doxygen/

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from flask import Blueprint, request, session, make_response
+from sqlalchemy.exc import IntegrityError
 from db import db
 from models import PaymentMethod
 from helpers import error
@@ -119,7 +120,20 @@ def apply_default_rule(uid: int, pm: PaymentMethod, want_default: bool):
     pm.is_default = True
 
 
-@bp.get("/payment-methods")
+def find_duplicate(uid: int, *, brand: str, last4: str, exp_month: int, exp_year: int, exclude_id: int | None = None):
+    q = PaymentMethod.query.filter_by(
+        user_id=uid,
+        brand=brand,
+        last4=last4,
+        exp_month=exp_month,
+        exp_year=exp_year,
+    )
+    if exclude_id is not None:
+        q = q.filter(PaymentMethod.id != exclude_id)
+    return q.first()
+
+
+@bp.route("/payment-methods", methods=["GET"], provide_automatic_options=False)
 def list_payment_methods():
     uid, err = require_user_id()
     if err:
@@ -133,7 +147,7 @@ def list_payment_methods():
     return {"items": [to_dict(pm) for pm in items]}, 200
 
 
-@bp.post("/payment-methods")
+@bp.route("/payment-methods", methods=["POST"], provide_automatic_options=False)
 def create_payment_method():
     uid, err = require_user_id()
     if err:
@@ -143,6 +157,17 @@ def create_payment_method():
     cleaned, err = validate_payload(data, partial=False)
     if err:
         return err
+
+    # Block duplicates (same card fingerprint for same user)
+    dup = find_duplicate(
+        uid,
+        brand=cleaned["brand"],
+        last4=cleaned["last4"],
+        exp_month=cleaned["exp_month"],
+        exp_year=cleaned["exp_year"],
+    )
+    if dup:
+        return error("conflict", "payment method already exists", 409)
 
     pm = PaymentMethod(user_id=uid, **cleaned)
     db.session.add(pm)
@@ -155,11 +180,16 @@ def create_payment_method():
     else:
         apply_default_rule(uid, pm, bool(cleaned.get("is_default", False)))
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return error("conflict", "payment method already exists", 409)
+
     return to_dict(pm), 201
 
 
-@bp.put("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["PUT"], provide_automatic_options=False)
 def replace_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -177,12 +207,26 @@ def replace_payment_method(payment_method_id: int):
     for k, v in cleaned.items():
         setattr(pm, k, v)
 
+    # Prevent replacing into a duplicate of another method for this user
+    cand = {
+        "brand": pm.brand,
+        "last4": pm.last4,
+        "exp_month": pm.exp_month,
+        "exp_year": pm.exp_year,
+    }
+    if find_duplicate(uid, **cand, exclude_id=pm.id):
+        return error("conflict", "payment method already exists", 409)
+
     apply_default_rule(uid, pm, bool(cleaned.get("is_default", pm.is_default)))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return error("conflict", "payment method already exists", 409)
     return to_dict(pm), 200
 
 
-@bp.patch("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["PATCH"], provide_automatic_options=False)
 def update_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -200,14 +244,28 @@ def update_payment_method(payment_method_id: int):
     for k, v in cleaned.items():
         setattr(pm, k, v)
 
+    # Prevent patching into a duplicate of another method for this user
+    cand = {
+        "brand": pm.brand,
+        "last4": pm.last4,
+        "exp_month": pm.exp_month,
+        "exp_year": pm.exp_year,
+    }
+    if find_duplicate(uid, **cand, exclude_id=pm.id):
+        return error("conflict", "payment method already exists", 409)
+
     if "is_default" in cleaned:
         apply_default_rule(uid, pm, bool(cleaned["is_default"]))
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return error("conflict", "payment method already exists", 409)
     return to_dict(pm), 200
 
 
-@bp.delete("/payment-methods/<int:payment_method_id>")
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["DELETE"], provide_automatic_options=False)
 def delete_payment_method(payment_method_id: int):
     uid, err = require_user_id()
     if err:
@@ -236,11 +294,22 @@ def delete_payment_method(payment_method_id: int):
 
 
 # Optional: explicit OPTIONS for these resources (already have /api/options, but this is cleaner)
+from flask import make_response
+
 @bp.route("/payment-methods", methods=["OPTIONS"])
-@bp.route("/payment-methods/<int:payment_method_id>", methods=["OPTIONS"])
-def payment_methods_options(payment_method_id: int | None = None):
+def payment_methods_options_collection():
     resp = make_response("", 204)
-    resp.headers["Allow"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    allow = "GET,POST,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@bp.route("/payment-methods/<int:payment_method_id>", methods=["OPTIONS"])
+def payment_methods_options_item(payment_method_id):
+    resp = make_response("", 204)
+    allow = "GET,PUT,PATCH,DELETE,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return resp

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}BoxedWithLove{% endblock %}</title>
+  <title>{% block title %}Checkout - BoxedWithLove{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,15 +13,58 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon_io/favicon-16x16.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon_io/favicon.ico') }}">
   <link rel="manifest" href="{{ url_for('static', filename='favicon_io/site.webmanifest') }}">
+
+  <!-- Tailwind CDN (MVP). If you later compile Tailwind, remove this. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            background: '#f5f3f0',
+            foreground: '#171717',
+            card: '#ffffff',
+            border: '#e7e0d7',
+            muted: '#6b7280',
+            primary: '#8B3A2B',
+            'primary-foreground': '#ffffff',
+            secondary: '#f3f4f6',
+          },
+          fontFamily: {
+            serif: ['Playfair Display', 'serif'],
+            sans: ['DM Sans', 'system-ui', 'sans-serif'],
+          },
+          borderRadius: {
+            lg: '0.75rem',
+            xl: '1rem',
+          },
+          boxShadow: {
+            soft: '0 6px 20px rgba(0,0,0,0.06)',
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'DM Sans', system-ui, sans-serif; }
+    input[type="radio"],
+    input[type="checkbox"] {
+      width: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+  </style>
 </head>
-<body>
+
+<body class="min-h-screen flex flex-col">
   <header class="topbar" role="banner">
     <nav class="navwrap" aria-label="Primary">
       <a class="brand" href="{{ url_for('home') }}">BoxedWithLove</a>
 
       <form class="navsearch navsearch--desktop" action="{{ url_for('web_products') }}" method="get" role="search">
         <span class="icon" aria-hidden="true">
-          <!-- search icon -->
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="M21 21l-4.3-4.3"></path>
@@ -37,13 +80,12 @@
           {% if nav_user %}
             <details class="account">
               <summary class="iconbtn" aria-label="Account">
-                <!-- user icon -->
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21a8 8 0 0 0-16 0"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
               </summary>
-                <div class="menu" role="menu">
+              <div class="menu" role="menu">
                 <div class="menu-name">{{ nav_user.email }}</div>
                 <a role="menuitem" href="{{ url_for('web_account') }}">My Account</a>
                 <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
@@ -61,7 +103,6 @@
         </div>
 
         <a class="iconbtn cartbtn" href="{{ url_for('web_cart') }}" aria-label="Cart">
-          <!-- shopping bag icon -->
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z"></path>
             <path d="M3 6h18"></path>
@@ -71,7 +112,6 @@
         </a>
 
         <button id="navToggle" class="iconbtn navtoggle" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false">
-          <!-- hamburger icon -->
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 6h18"></path>
             <path d="M3 12h18"></path>
@@ -81,7 +121,6 @@
       </div>
     </nav>
 
-    <!-- Mobile dropdown navigation (hidden on desktop) -->
     <div id="mobileNav" class="mobile-nav" hidden>
       <form class="navsearch navsearch--mobile" action="{{ url_for('web_products') }}" method="get" role="search">
         <span class="icon" aria-hidden="true">
@@ -112,73 +151,26 @@
     </div>
   </header>
 
-  <main class="container{% block main_class %}{% endblock %}" role="main">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-wrap">
-          {% for category, msg in messages %}
-            <div class="flash {{ category }}">{{ msg }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+  <main class="flex-1">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
 
-    {% block content %}{% endblock %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mb-6 space-y-2">
+            {% for category, msg in messages %}
+              <div class="rounded-lg border border-border bg-card px-4 py-3 text-sm">
+                <span class="font-medium">{{ msg }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+
+    </div>
   </main>
 
-  <footer class="footer">
-    <div class="footer-wrap">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <a class="footer-logo" href="{{ url_for('home') }}">BoxedWithLove</a>
-          <p class="muted">
-            Curated gift baskets crafted with care for every occasion. Send love, joy, and
-            thoughtfulness in beautifully packaged boxes.
-          </p>
-        </div>
-
-        <div>
-          <div class="footer-title">Quick Links</div>
-          <ul class="footer-links">
-            <li><a href="{{ url_for('web_products') }}">Shop All</a></li>
-            <li><a href="{{ url_for('web_products', category='gourmet') }}">Gourmet Gifts</a></li>
-            <li><a href="{{ url_for('web_products', category='wellness') }}">Wellness</a></li>
-            <li><a href="{{ url_for('web_products', category='celebration') }}">Celebrations</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <div class="footer-title">Help</div>
-          <ul class="footer-links">
-            <li><a href="{{ url_for('web_cart') }}">Cart</a></li>
-            <li><a href="{{ url_for('web_orders') }}">Track Order</a></li>
-            <li><a href="{{ url_for('web_login') }}">Sign In</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p class="muted">&copy; {{ current_year }} BoxedWithLove. All rights reserved.</p>
-        <p class="muted">Made with <span aria-hidden="true">♥</span> for gift givers everywhere</p>
-      </div>
-    </div>
-  </footer>
-
-  <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
-
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
-
-  <!-- Auto-hide flash messages after 5 seconds -->
-  <script>
-    setTimeout(function() {
-      const flashes = document.querySelectorAll('.flash');
-      flashes.forEach(function(flash) {
-        flash.style.transition = "opacity 0.6s ease";
-        flash.style.opacity = "0";
-        setTimeout(() => flash.remove(), 600);
-      });
-    }, 5000); // 5000 ms = 5 seconds
-  </script>
-
 </body>
 </html>

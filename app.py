@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+import csv
+import re
+from pathlib import Path
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from sqlalchemy import inspect
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request, session, render_template, redirect, url_for, flash
 from dotenv import load_dotenv
 
 from config import Config
 from db import db
-from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Address 
+from models import User, Product, CartItem, Order, OrderItem, PaymentMethod, Address, Category, Review
 from helpers import error, current_user #moved these to their own file to fix circular imports, helpers.py
 
 # Blueprints (API modules)
@@ -65,30 +70,78 @@ def create_app() -> Flask:
             "current_year": datetime.utcnow().year,
         }
 
+    # Format UTC timestamps for humans in America/Toronto.
+    @app.template_filter("toronto_dt")
+    def toronto_dt(value):
+        if not value:
+            return ""
+        # If naive datetime, assume UTC.
+        if getattr(value, "tzinfo", None) is None:
+            value = value.replace(tzinfo=timezone.utc)
+        try:
+            local = value.astimezone(ZoneInfo("America/Toronto"))
+        except Exception:
+            local = value
+        return local.strftime("%Y-%m-%d %I:%M %p")
+
+    @app.template_filter("toronto_dt_pretty")
+    def toronto_dt_pretty(value):
+        """Human-friendly Toronto timestamp (store in UTC, display local)."""
+        if not value:
+            return ""
+        if getattr(value, "tzinfo", None) is None:
+            value = value.replace(tzinfo=timezone.utc)
+        try:
+            local = value.astimezone(ZoneInfo("America/Toronto"))
+        except Exception:
+            local = value
+        # Example: Feb 22, 2026 • 7:14 PM EST
+        return local.strftime("%b %d, %Y • %I:%M %p %Z")
+
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
         # Homepage: wide layout + featured products.
-        featured = Product.query.order_by(Product.id.asc()).limit(4).all()
+        featured = Product.query.order_by(Product.created_at.desc(), Product.id.desc()).limit(4).all()
+
+        # Homepage categories (kept intentionally small + aligned with current DB categories).
+        # These slugs must match the query param behavior in /products.
+        wanted = ["box", "basket", "food", "flower", "candle", "book"]
+        emoji_map = {
+            "box": "🎁",
+            "basket": "🧺",
+            "food": "🍫",
+            "flower": "💐",
+            "candle": "🕯️",
+            "book": "📚",
+        }
+
+        # Count products per category (case-insensitive on category_name).
+        counts = dict(
+            db.session.query(db.func.lower(Category.category_name), db.func.count(Product.id))
+            .join(Product, Product.category_id == Category.id)
+            .group_by(db.func.lower(Category.category_name))
+            .all()
+        )
+
         categories = [
-            {"name": "Wellness", "slug": "wellness", "emoji": "🧘", "count": 3},
-            {"name": "Gourmet", "slug": "gourmet", "emoji": "🍷", "count": 4},
-            {"name": "Comfort", "slug": "comfort", "emoji": "🛋️", "count": 1},
-            {"name": "Baby", "slug": "baby", "emoji": "👶", "count": 1},
-            {"name": "Celebration", "slug": "celebration", "emoji": "🎉", "count": 1},
-            {"name": "Hobby", "slug": "hobby", "emoji": "🌱", "count": 1},
+            {
+                "name": slug.title(),
+                "slug": slug,
+                "emoji": emoji_map.get(slug, "🎁"),
+                "count": int(counts.get(slug, 0)),
+            }
+            for slug in wanted
         ]
         return render_template("home.html", featured=featured, categories=categories)
 
     @app.get("/products")
     def web_products():
         search = (request.args.get("search") or "").strip()
-        category = (request.args.get("category") or "").strip().lower()
+        category = (request.args.get("category") or "").strip()
+        sort = (request.args.get("sort") or "popular").strip()
 
         q = Product.query
-        # If category is provided but no search, treat category as a search hint.
-        if category and not search:
-            search = category
 
         if search:
             like = f"%{search}%"
@@ -100,13 +153,133 @@ def create_app() -> Flask:
                 )
             )
 
-        products = q.order_by(Product.id.asc()).limit(24).all()
-        return render_template("products.html", products=products, search=search, category=category)
+        if category:
+            q = q.join(Category).filter(db.func.lower(Category.category_name) == category.lower())
+
+        if sort == "price_asc":
+            q = q.order_by(Product.price_cents.asc(), Product.id.asc())
+        elif sort == "price_desc":
+            q = q.order_by(Product.price_cents.desc(), Product.id.asc())
+        elif sort == "newest":
+            q = q.order_by(Product.created_at.desc(), Product.id.desc())
+        else:
+            q = q.order_by(Product.id.asc())
+
+        products = q.limit(24).all()
+        categories = Category.query.order_by(Category.category_name.asc()).all()
+
+        # Batch-load rating stats for visible products to avoid N+1 queries.
+        product_ids = [p.id for p in products]
+        product_ratings = {}
+        if product_ids:
+            rows = (
+                db.session.query(
+                    Review.product_id,
+                    db.func.avg(Review.rating).label("avg_rating"),
+                    db.func.count(Review.id).label("review_count"),
+                )
+                .filter(Review.product_id.in_(product_ids))
+                .group_by(Review.product_id)
+                .all()
+            )
+            product_ratings = {
+                int(r.product_id): {
+                    "avg_rating": float(r.avg_rating) if r.avg_rating is not None else 0.0,
+                    "review_count": int(r.review_count or 0),
+                }
+                for r in rows
+            }
+
+        return render_template(
+            "products.html",
+            products=products,
+            categories=categories,
+            search=search,
+            category=category,
+            sort=sort,
+            product_ratings=product_ratings,
+        )
 
     @app.get("/products/<int:product_id>")
     def web_product_detail(product_id: int):
         product = Product.query.get_or_404(product_id)
-        return render_template("product_detail.html", product=product)
+
+        reviews = (
+            Review.query.filter(Review.product_id == product_id)
+            .order_by(Review.created_at.desc(), Review.id.desc())
+            .all()
+        )
+
+        avg_rating = (
+            db.session.query(db.func.avg(Review.rating))
+            .filter(Review.product_id == product_id)
+            .scalar()
+        )
+        avg_rating = float(avg_rating) if avg_rating is not None else 0.0
+
+        # UI helpers (kept lightweight; no DB schema changes)
+        current_uid = session.get("user_id")
+        has_user_reviewed = bool(current_uid) and any(r.user_id == current_uid for r in reviews)
+
+        # Optional "What's inside" list: allow authors to encode list-like descriptions.
+        # Only render when it looks like an actual list (>= 2 items) to avoid noisy UI.
+        inside_items = []
+        display_description = product.description
+        raw_desc = (product.description or "").strip()
+        if "\n" in raw_desc:
+            parts = [p.strip(" \t-•") for p in raw_desc.splitlines() if p.strip()]
+            if len(parts) >= 2:
+                display_description = parts[0]
+                inside_items = parts[1:]
+        elif ";" in raw_desc:
+            parts = [p.strip() for p in raw_desc.split(";") if p.strip()]
+            if len(parts) >= 3:
+                display_description = parts[0]
+                inside_items = parts[1:]
+
+        # Matches the products page mock behavior (a few items appear as Featured).
+        is_featured = product.id in (1, 2, 4)
+
+        return render_template(
+            "product_detail.html",
+            product=product,
+            reviews=reviews,
+            avg_rating=avg_rating,
+            has_user_reviewed=has_user_reviewed,
+            inside_items=inside_items,
+            is_featured=is_featured,
+            display_description=display_description,
+        )
+
+    @app.post("/products/<int:product_id>/reviews")
+    def web_post_review(product_id: int):
+        user = current_user()
+        if not user:
+            flash("Please log in to leave a review.", "info")
+            return redirect(url_for("web_login"))
+
+        product = Product.query.get(product_id)
+        if not product:
+            return render_template("404.html"), 404
+
+        rating_raw = (request.form.get("rating") or "").strip()
+        comment = (request.form.get("comment") or "").strip() or None
+
+        try:
+            rating = int(rating_raw)
+        except Exception:
+            rating = 0
+
+        if rating < 1 or rating > 5:
+            flash("Rating must be between 1 and 5.", "error")
+            return redirect(url_for("web_product_detail", product_id=product_id))
+
+        r = Review(user_id=user.id, product_id=product_id, rating=rating, comment=comment)
+        db.session.add(r)
+        db.session.commit()
+
+        flash("Thanks! Your review was submitted.", "success")
+        return redirect(url_for("web_product_detail", product_id=product_id))
 
     @app.get("/cart")
     def web_cart():
@@ -118,7 +291,258 @@ def create_app() -> Flask:
         if not user:
             flash("Please log in to checkout.", "info")
             return redirect(url_for("web_login"))
-        return render_template("checkout.html")
+        # Checkout is a 3-step flow: shipping -> payment -> review
+        return redirect(url_for("checkout_shipping"))
+
+    # --- Checkout flow (Module 4) ---
+    CHECKOUT_TAX_RATE = 0.13
+
+    def _normalize_shipping(shipping: dict | None, user: User) -> dict:
+        """Normalize shipping dict keys and apply defaults from the user's account."""
+        s = dict(shipping or {})
+
+        # Backward-compat for older session keys (before address book integration)
+        if "address" in s and "street_address" not in s:
+            s["street_address"] = s.get("address")
+        if "zip_code" in s and "postal_code" not in s:
+            s["postal_code"] = s.get("zip_code")
+        if "phone" in s and "phone_number" not in s:
+            s["phone_number"] = s.get("phone")
+
+        # Defaults from account
+        s.setdefault("first_name", user.first_name)
+        s.setdefault("last_name", user.last_name)
+        s.setdefault("phone_number", user.phone_number or "")
+
+        return s
+
+    def _cart_snapshot_for_user(user_id: int):
+        """Return (items, summary) for the current user's cart."""
+        items = CartItem.query.filter_by(user_id=user_id).all()
+        view_items = []
+        for ci in items:
+            p = ci.product
+            if not p:
+                continue
+            view_items.append(
+                {
+                    "product_id": p.id,
+                    "name": p.name,
+                    "image_url": p.image_url,
+                    "unit_price_cents": p.price_cents,
+                    "quantity": ci.quantity,
+                    "line_total_cents": p.price_cents * ci.quantity,
+                }
+            )
+
+        subtotal = sum(i["line_total_cents"] for i in view_items)
+        tax = int(subtotal * CHECKOUT_TAX_RATE)
+        shipping = 0
+        total = subtotal + tax + shipping
+        summary = {
+            "subtotal_cents": subtotal,
+            "tax_cents": tax,
+            "shipping_cents": shipping,
+            "total_cents": total,
+        }
+        return view_items, summary
+
+    @app.get("/checkout/shipping")
+    def checkout_shipping():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        addresses = (
+            Address.query.filter_by(user_id=user.id)
+            .order_by(Address.id.desc())
+            .all()
+        )
+
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+
+        # Prefill from the most-recent saved address if shipping isn't set yet.
+        if not shipping.get("street_address") and addresses:
+            a = addresses[0]
+            shipping.update(
+                {
+                    "address_id": a.id,
+                    "street_address": a.street_address,
+                    "postal_code": a.postal_code,
+                    "country": a.country,
+                }
+            )
+
+        # Persist normalized/prefilled data so the next steps (payment/review) are consistent.
+        session["checkout_shipping"] = shipping
+
+        return render_template(
+            "checkout_shipping.html",
+            items=items,
+            summary=summary,
+            shipping=shipping,
+            addresses=addresses,
+            user=user,
+        )
+
+    @app.post("/checkout/shipping")
+    def checkout_shipping_post():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        # Basic validation (keep MVP simple)
+        def get(name: str) -> str:
+            return (request.form.get(name) or "").strip()
+
+        # Optional: user selects a saved address; we still allow editing the fields for this checkout.
+        selected_address = None
+        address_id_raw = get("address_id")
+        if address_id_raw:
+            try:
+                address_id = int(address_id_raw)
+            except Exception:
+                address_id = None
+
+            if address_id is not None:
+                selected_address = Address.query.filter_by(id=address_id, user_id=user.id).first()
+                if not selected_address:
+                    flash("Selected address not found.", "error")
+                    return redirect(url_for("checkout_shipping"))
+
+        street_address = get("street_address") or (selected_address.street_address if selected_address else "")
+        postal_code = get("postal_code") or (selected_address.postal_code if selected_address else "")
+        country = get("country") or (selected_address.country if selected_address else "")
+        phone_number = get("phone_number") or (user.phone_number or "")
+
+        shipping = {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "address_id": selected_address.id if selected_address else None,
+            "street_address": street_address,
+            "postal_code": postal_code,
+            "country": country,
+            "phone_number": phone_number,
+        }
+
+        required = ["street_address", "postal_code", "country"]
+        missing = [k for k in required if not shipping.get(k)]
+        if missing:
+            flash("Please select a saved address (or fill the address fields).", "error")
+            session["checkout_shipping"] = shipping
+            return redirect(url_for("checkout_shipping"))
+
+        session["checkout_shipping"] = shipping
+        return redirect(url_for("checkout_payment"))
+
+    @app.get("/checkout/payment")
+    def checkout_payment():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        if not session.get("checkout_shipping"):
+            return redirect(url_for("checkout_shipping"))
+
+        methods = (
+            PaymentMethod.query.filter_by(user_id=user.id)
+            .order_by(PaymentMethod.is_default.desc(), PaymentMethod.id.desc())
+            .all()
+        )
+
+        selected_id = session.get("checkout_payment_method_id")
+        if selected_id and not any(m.id == selected_id for m in methods):
+            selected_id = None
+
+        if not selected_id:
+            default = next((m for m in methods if m.is_default), None)
+            if default:
+                selected_id = default.id
+
+        return render_template(
+            "checkout_payment.html",
+            items=items,
+            summary=summary,
+            methods=methods,
+            selected_id=selected_id,
+            user=user,
+        )
+
+    @app.post("/checkout/payment")
+    def checkout_payment_post():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        if not session.get("checkout_shipping"):
+            return redirect(url_for("checkout_shipping"))
+
+        raw = (request.form.get("payment_method_id") or "").strip()
+        try:
+            payment_method_id = int(raw)
+        except Exception:
+            payment_method_id = None
+
+        if not payment_method_id:
+            flash("Please select a payment method.", "error")
+            return redirect(url_for("checkout_payment"))
+
+        pm = PaymentMethod.query.filter_by(id=payment_method_id, user_id=user.id).first()
+        if not pm:
+            flash("Selected payment method not found.", "error")
+            return redirect(url_for("checkout_payment"))
+
+        session["checkout_payment_method_id"] = pm.id
+        return redirect(url_for("checkout_review"))
+
+    @app.get("/checkout/review")
+    def checkout_review():
+        user = current_user()
+        if not user:
+            flash("Please log in to checkout.", "info")
+            return redirect(url_for("web_login"))
+
+        items, summary = _cart_snapshot_for_user(user.id)
+        if not items:
+            flash("Your cart is empty.", "info")
+            return redirect(url_for("web_cart"))
+
+        shipping = _normalize_shipping(session.get("checkout_shipping"), user)
+        if not shipping.get("street_address") or not shipping.get("postal_code") or not shipping.get("country"):
+            return redirect(url_for("checkout_shipping"))
+        session["checkout_shipping"] = shipping
+
+        payment_method_id = session.get("checkout_payment_method_id")
+        if not payment_method_id:
+            return redirect(url_for("checkout_payment"))
+
+        pm = PaymentMethod.query.filter_by(id=payment_method_id, user_id=user.id).first()
+        if not pm:
+            session.pop("checkout_payment_method_id", None)
+            return redirect(url_for("checkout_payment"))
+
+        return render_template(
+            "checkout_review.html",
+            items=items,
+            summary=summary,
+            shipping=shipping,
+            payment_method=pm,
+            user=user,
+        )
 
     @app.get("/payment-methods")
     def web_payment_methods():
@@ -175,6 +599,17 @@ def create_app() -> Flask:
         if exp_year < year_now - 1 or exp_year > year_now + 25:
             return bad("Exp year is out of allowed range.")
 
+        # Prevent duplicates for this user (same brand/last4/expiry)
+        dup = PaymentMethod.query.filter_by(
+            user_id=user.id,
+            brand=brand,
+            last4=last4,
+            exp_month=exp_month,
+            exp_year=exp_year,
+        ).first()
+        if dup:
+            return bad("That payment method is already saved.")
+
         pm = PaymentMethod(
             user_id=user.id,
             cardholder_name=cardholder_name,
@@ -211,7 +646,56 @@ def create_app() -> Flask:
             flash("Please log in to view your orders.", "info")
             return redirect(url_for("web_login"))
         orders = Order.query.filter_by(user_id=user.id).order_by(Order.id.desc()).all()
-        return render_template("orders.html", orders=orders)
+
+        order_item_counts: dict[int, int] = {}
+        order_previews: dict[int, dict] = {}
+        order_ids = [o.id for o in orders]
+
+        if order_ids:
+            # One query for item counts (avoid N+1).
+            rows = (
+                db.session.query(OrderItem.order_id, db.func.coalesce(db.func.sum(OrderItem.quantity), 0))
+                .filter(OrderItem.order_id.in_(order_ids))
+                .group_by(OrderItem.order_id)
+                .all()
+            )
+            order_item_counts = {int(oid): int(cnt or 0) for oid, cnt in rows}
+
+            # One query for a lightweight preview (first 2 product names + a thumbnail).
+            rows = (
+                db.session.query(OrderItem.order_id, Product.name, Product.image_url)
+                .join(Product, Product.id == OrderItem.product_id)
+                .filter(OrderItem.order_id.in_(order_ids))
+                .order_by(OrderItem.order_id.desc(), OrderItem.id.asc())
+                .all()
+            )
+
+            for oid, name, image_url in rows:
+                oid = int(oid)
+                preview = order_previews.setdefault(
+                    oid,
+                    {
+                        "image_url": image_url,
+                        "names": [],
+                        "more_count": 0,
+                    },
+                )
+
+                if not preview.get("image_url") and image_url:
+                    preview["image_url"] = image_url
+
+                if name:
+                    if len(preview["names"]) < 2:
+                        preview["names"].append(name)
+                    else:
+                        preview["more_count"] += 1
+
+        return render_template(
+            "orders.html",
+            orders=orders,
+            order_item_counts=order_item_counts,
+            order_previews=order_previews,
+        )
 
     @app.get("/orders/<int:order_id>")
     def web_order_detail(order_id: int):
@@ -223,7 +707,90 @@ def create_app() -> Flask:
         if not order:
             return render_template("404.html"), 404
         items = OrderItem.query.filter_by(order_id=order.id).all()
-        return render_template("order_detail.html", order=order, items=items)
+
+        subtotal_cents = sum(int(i.unit_price_cents) * int(i.quantity) for i in items)
+        shipping_cents = 0
+        stored_total = int(getattr(order, "total_cents", 0) or 0)
+        if stored_total <= 0:
+            stored_total = subtotal_cents + int(subtotal_cents * CHECKOUT_TAX_RATE) + shipping_cents
+        tax_cents = stored_total - subtotal_cents - shipping_cents
+        if tax_cents < 0:
+            tax_cents = int(subtotal_cents * CHECKOUT_TAX_RATE)
+            stored_total = subtotal_cents + tax_cents + shipping_cents
+
+        summary = {
+            "subtotal_cents": subtotal_cents,
+            "shipping_cents": shipping_cents,
+            "tax_cents": tax_cents,
+            "total_cents": stored_total,
+        }
+
+        return render_template("order_detail.html", order=order, items=items, summary=summary)
+
+    @app.post("/orders/<int:order_id>/shop-again")
+    def web_order_shop_again(order_id: int):
+        """Add all items from an order back into the user's cart ("buy again")."""
+        user = current_user()
+        if not user:
+            flash("Please log in to shop again.", "info")
+            return redirect(url_for("web_login", redirect=f"/orders/{order_id}"))
+
+        order = Order.query.filter_by(id=order_id, user_id=user.id).first()
+        if not order:
+            return render_template("404.html"), 404
+
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        if not items:
+            flash("This order has no items to add.", "info")
+            return redirect(url_for("web_order_detail", order_id=order_id))
+
+        # Bulk fetch products + existing cart items to avoid N+1.
+        product_ids = list({int(i.product_id) for i in items if i.product_id is not None})
+        if not product_ids:
+            flash("No valid products found in this order.", "info")
+            return redirect(url_for("web_order_detail", order_id=order_id))
+
+        products = Product.query.filter(Product.id.in_(product_ids)).all()
+        products_by_id = {int(p.id): p for p in products}
+
+        existing = CartItem.query.filter(
+            CartItem.user_id == user.id,
+            CartItem.product_id.in_(product_ids),
+        ).all()
+        existing_by_pid = {int(ci.product_id): ci for ci in existing}
+
+        added_qty = 0
+        skipped = 0
+        for oi in items:
+            pid = int(oi.product_id)
+            qty = int(getattr(oi, "quantity", 0) or 0)
+            if qty < 1:
+                continue
+            if pid not in products_by_id:
+                skipped += 1
+                continue
+
+            ci = existing_by_pid.get(pid)
+            if ci:
+                ci.quantity = int(ci.quantity) + qty
+            else:
+                ci = CartItem(user_id=user.id, product_id=pid, quantity=qty)
+                db.session.add(ci)
+                existing_by_pid[pid] = ci
+
+            added_qty += qty
+
+        db.session.commit()
+
+        if added_qty > 0:
+            msg = f"Added {added_qty} item" + ("s" if added_qty != 1 else "") + " to your cart."
+            if skipped:
+                msg += f" ({skipped} item" + ("s" if skipped != 1 else "") + " unavailable.)"
+            flash(msg, "success")
+            return redirect(url_for("web_cart"))
+
+        flash("No items could be added to your cart.", "info")
+        return redirect(url_for("web_order_detail", order_id=order_id))
 
     @app.get("/login")
     def web_login():
@@ -244,6 +811,10 @@ def create_app() -> Flask:
         session_cart_to_user(user.id) 
 
         flash("Logged in.", "success")
+        # Support redirect back to checkout/cart flows.
+        redirect_to = (request.args.get("redirect") or request.args.get("next") or request.form.get("redirect") or "").strip()
+        if redirect_to.startswith("/") and not redirect_to.startswith("//"):
+            return redirect(redirect_to)
         return redirect(url_for("web_products"))
 
     @app.get("/register")
@@ -338,6 +909,8 @@ def create_app() -> Flask:
     @app.post("/logout")
     def web_logout():
         session.pop("user_id", None)
+        session.pop("checkout_shipping", None)
+        session.pop("checkout_payment_method_id", None)
         flash("Logged out.", "success")
         return redirect(url_for("web_products"))
 
@@ -355,24 +928,181 @@ def create_app() -> Flask:
         """Create tables."""
         with app.app_context():
             db.create_all()
+
+            # Backfill legacy schemas where products table exists but lacks newer columns.
+            inspector = inspect(db.engine)
+            table_names = set(inspector.get_table_names())
+            if "products" in table_names:
+                product_cols = {c["name"] for c in inspector.get_columns("products")}
+                dialect = db.engine.dialect.name
+                ddl: list[str] = []
+
+                if "stock" not in product_cols:
+                    ddl.append(
+                        "ALTER TABLE products ADD COLUMN stock BIGINT NOT NULL DEFAULT 0"
+                        if dialect == "postgresql"
+                        else "ALTER TABLE products ADD COLUMN stock BIGINT DEFAULT 0"
+                    )
+                if "is_available" not in product_cols:
+                    ddl.append(
+                        "ALTER TABLE products ADD COLUMN is_available BOOLEAN NOT NULL DEFAULT TRUE"
+                        if dialect == "postgresql"
+                        else "ALTER TABLE products ADD COLUMN is_available BOOLEAN DEFAULT 1"
+                    )
+                if "category_id" not in product_cols:
+                    ddl.append("ALTER TABLE products ADD COLUMN category_id INTEGER")
+
+                if ddl:
+                    with db.engine.begin() as conn:
+                        for stmt in ddl:
+                            conn.exec_driver_sql(stmt)
+                    print("DB schema compatibility updates applied to products table.")
+
+            # Add a unique index to prevent duplicate payment methods per user
+            # (same brand + last4 + expiry). This is safe for Postgres and SQLite.
+            if "payment_methods" in table_names:
+                existing_indexes = {i.get("name") for i in inspector.get_indexes("payment_methods")}
+                if "ux_payment_methods_user_card" not in existing_indexes:
+                    stmt = (
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_methods_user_card "
+                        "ON payment_methods (user_id, brand, last4, exp_month, exp_year)"
+                    )
+                    try:
+                        with db.engine.begin() as conn:
+                            conn.exec_driver_sql(stmt)
+                        print("DB schema compatibility updates applied to payment_methods table.")
+                    except Exception:
+                        # If duplicates already exist, index creation can fail.
+                        # The API/UI layer also blocks duplicates going forward.
+                        print("Warning: could not create unique index for payment_methods (duplicates may already exist).")
         print("DB initialized (tables created).")
 
     @app.cli.command("seed")
     def seed_cmd():
-        """Insert a few sample products for demos/tests."""
+        """Seed database with products (CSV if present, otherwise minimal demo data)."""
         with app.app_context():
             db.create_all()
-            if Product.query.count() == 0:
-                samples = [
-                    Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url=""),
-                    Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url=""),
-                    Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url=""),
-                ]
-                db.session.add_all(samples)
+
+            # Prevent accidental duplication
+            if Product.query.count() > 0:
+                print("Products already exist. Reset DB (docker compose down -v) to reseed.")
+                return
+            csv_path = Path(__file__).resolve().parent / "products.csv"
+            # Product images live under static/images/products/
+            images_dir = Path(__file__).resolve().parent / "static" / "images" / "products"
+
+            def parse_price_cents(raw: str) -> int:
+                raw = (raw or "").strip()
+                if not raw:
+                    return 0
+                if "." in raw:
+                    return int(round(float(raw) * 100))
+                return int(raw)
+
+            def slug_sku(name: str, used: set[str]) -> str:
+                base = re.sub(r"[^A-Za-z0-9]+", "", (name or "").upper())[:10] or "ITEM"
+                sku = f"BWL-{base}"
+                i = 2
+                while sku in used:
+                    sku = f"BWL-{base}-{i}"
+                    i += 1
+                used.add(sku)
+                return sku
+
+            def resolve_image_url(product_name: str, image_field: str | None) -> str | None:
+                image_field = (image_field or "").strip()
+
+                # If someone later puts a real URL in the CSV, accept it
+                if image_field.startswith("http://") or image_field.startswith("https://"):
+                    return image_field
+
+                # If CSV contains a real filename like Basket01.jpg, use it (if exists)
+                if image_field and "." in image_field:
+                    p = images_dir / image_field
+                    if p.exists():
+                        return f"/static/images/products/{p.name}"
+
+                # Fast path: build a case-insensitive stem->filename map once
+                # (handles .jpg/.png/.webp and any casing)
+                if not hasattr(resolve_image_url, "_stem_map"):
+                    stem_map = {}
+                    if images_dir.exists():
+                        for fp in images_dir.iterdir():
+                            if fp.is_file():
+                                stem_map[fp.stem.lower()] = fp.name
+                    setattr(resolve_image_url, "_stem_map", stem_map)
+
+                stem_map = getattr(resolve_image_url, "_stem_map")
+                hit = stem_map.get((product_name or "").strip().lower())
+                if hit:
+                    return f"/static/images/products/{hit}"
+
+                # Auto-match: ProductName + common extensions
+                base = (product_name or "").strip()
+                candidates = []
+                for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    candidates.append(base + ext)
+                    candidates.append(base.lower() + ext)
+                    candidates.append(base.upper() + ext)
+
+                for c in candidates:
+                    p = images_dir / c
+                    if p.exists():
+                        return f"/static/images/products/{p.name}"
+
+                return None  # ok; UI will show placeholder
+
+            # Create categories lazily
+            categories_by_name: dict[str, Category] = {}
+
+            used_skus: set[str] = set()
+
+            if csv_path.exists():
+                print(f"Seeding from CSV: {csv_path}")
+                with open(csv_path, newline="", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+
+                    for row in reader:
+                        name = (row.get("ProductName") or "").strip()
+                        if not name:
+                            continue
+
+                        category_name = (row.get("Category") or "").strip() or "General"
+                        if category_name not in categories_by_name:
+                            cat = Category(category_name=category_name)
+                            db.session.add(cat)
+                            categories_by_name[category_name] = cat
+
+                        price_cents = parse_price_cents(row.get("ProductPrice"))
+                        desc = (row.get("Description") or "").strip()
+                        image_url = resolve_image_url(name, row.get("Image_URL"))
+
+                        p = Product(
+                            sku=slug_sku(name, used_skus),
+                            name=name,
+                            description=desc,
+                            price_cents=price_cents,
+                            image_url=image_url,
+                            category=categories_by_name[category_name],
+                            stock=50,
+                            is_available=True,
+                        )
+                        db.session.add(p)
+
                 db.session.commit()
-                print("Seeded products.")
-            else:
-                print("Products already exist; skipping seed.")
+                print(f"Seeded {Product.query.count()} products.")
+                return
+
+            # Fallback minimal seed if CSV missing
+            print("products.csv not found, seeding minimal demo products.")
+            cat = Category(category_name="General")
+            db.session.add(cat)
+            db.session.add_all([
+                Product(sku="BWL-001", name="Cozy Winter Box", description="Hot cocoa, socks, and a candle.", price_cents=3999, image_url="", category=cat, stock=25, is_available=True),
+                Product(sku="BWL-002", name="Self-Care Basket", description="Bath bombs, tea, and skincare minis.", price_cents=4999, image_url="", category=cat, stock=18, is_available=True),
+                Product(sku="BWL-003", name="Snack Attack Box", description="Gourmet snacks for sharing.", price_cents=2999, image_url="", category=cat, stock=30, is_available=True),
+            ])
+            db.session.commit()
 
     return app
 

@@ -8,6 +8,9 @@ from models import Order, OrderItem, CartItem, Product, PaymentMethod
 
 bp = Blueprint("orders_api", __name__)
 
+# Keep totals consistent with the cart module.
+TAX_RATE = 0.13
+
 
 def require_user_id():
     uid = session.get("user_id")
@@ -63,7 +66,7 @@ def ensure_payment_method(uid: int, payment_method_id: int | None):
     return None, error("validation_error", "no payment methods on file", 400)
 
 
-@bp.get("/orders")
+@bp.route("/orders", methods=["GET"], provide_automatic_options=False)
 def list_orders():
     uid, err = require_user_id()
     if err:
@@ -77,7 +80,7 @@ def list_orders():
     return {"items": [order_to_dict(o, include_items=False) for o in orders]}, 200
 
 
-@bp.get("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["GET"], provide_automatic_options=False)
 def get_order(order_id: int):
     uid, err = require_user_id()
     if err:
@@ -92,7 +95,7 @@ def get_order(order_id: int):
     return order_to_dict(order, include_items=True), 200
 
 
-@bp.post("/orders")
+@bp.route("/orders", methods=["POST"], provide_automatic_options=False)
 def create_order():
     """
     Checkout:
@@ -123,7 +126,7 @@ def create_order():
 
     # Transaction: create order, items, clear cart
     try:
-        total_cents = 0
+        subtotal_cents = 0
 
         order = Order(
             user_id=uid,
@@ -148,7 +151,7 @@ def create_order():
             if qty < 1:
                 raise ValueError("invalid quantity in cart")
 
-            total_cents += unit_price_cents * qty
+            subtotal_cents += unit_price_cents * qty
 
             oi = OrderItem(
                 order_id=order.id,
@@ -158,6 +161,10 @@ def create_order():
             )
             db.session.add(oi)
 
+        tax_cents = int(subtotal_cents * TAX_RATE)
+        shipping_cents = 0
+        total_cents = subtotal_cents + tax_cents + shipping_cents
+
         # If your Order model has total_cents, set it. (Some teams add it; safe-guard.)
         if hasattr(order, "total_cents"):
             order.total_cents = total_cents
@@ -166,6 +173,10 @@ def create_order():
         CartItem.query.filter_by(user_id=uid).delete()
 
         db.session.commit()
+
+        # Clear checkout state (server-rendered flow stores shipping + selected PM in session).
+        session.pop("checkout_shipping", None)
+        session.pop("checkout_payment_method_id", None)
 
     except ValueError as ve:
         db.session.rollback()
@@ -189,7 +200,7 @@ def create_order():
     }, 201
 
 
-@bp.patch("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["PATCH"], provide_automatic_options=False)
 def patch_order(order_id: int):
     """
     Limited state transitions:
@@ -222,7 +233,7 @@ def patch_order(order_id: int):
     return order_to_dict(order, include_items=False), 200
 
 
-@bp.delete("/orders/<int:order_id>")
+@bp.route("/orders/<int:order_id>", methods=["DELETE"], provide_automatic_options=False)
 def delete_order(order_id: int):
     """
     Prefer soft-cancel: set status=cancelled.
@@ -245,10 +256,19 @@ def delete_order(order_id: int):
 
 
 @bp.route("/orders", methods=["OPTIONS"])
-@bp.route("/orders/<int:order_id>", methods=["OPTIONS"])
-def orders_options(order_id: int | None = None):
+def orders_options_collection():
     resp = make_response("", 204)
-    resp.headers["Allow"] = "GET,POST,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Methods"] = "GET,POST,PATCH,DELETE,OPTIONS"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    allow = "GET,POST,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@bp.route("/orders/<int:order_id>", methods=["OPTIONS"])
+def orders_options_item(order_id):
+    resp = make_response("", 204)
+    allow = "GET,PATCH,DELETE,OPTIONS"
+    resp.headers["Allow"] = allow
+    resp.headers["Access-Control-Allow-Methods"] = allow
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return resp

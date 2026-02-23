@@ -1,0 +1,200 @@
+{% extends "base_checkout.html" %}
+
+{% block title %}Checkout – Shipping | BoxedWithLove{% endblock %}
+
+{% block content %}
+{% set active = 'shipping' %}
+
+<!-- Stepper -->
+<div class="mb-8">
+  <div class="flex items-center justify-center gap-4">
+    {% set steps = [
+      {'key':'shipping','label':'Shipping','n':1},
+      {'key':'payment','label':'Payment','n':2},
+      {'key':'review','label':'Review','n':3}
+    ] %}
+    {% for s in steps %}
+      {% set is_active = active == s.key %}
+      {% set is_past = (active == 'payment' and s.key == 'shipping') or (active == 'review' and (s.key == 'shipping' or s.key == 'payment')) %}
+      <div class="flex items-center">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+            {% if is_active %} bg-primary text-primary-foreground
+            {% elif is_past %} bg-primary/20 text-primary
+            {% else %} bg-secondary text-muted
+            {% endif %}">
+            {% if is_past %}
+              <!-- check icon -->
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            {% else %}
+              {{ s.n }}
+            {% endif %}
+          </div>
+          <span class="text-sm font-medium {% if is_active %}text-foreground{% else %}text-muted{% endif %}">
+            {{ s.label }}
+          </span>
+        </div>
+        {% if not loop.last %}
+          <div class="w-16 h-px mx-4 {% if is_past %}bg-primary/30{% else %}bg-border{% endif %}"></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-8 items-start">
+  <!-- Left: Shipping form -->
+  <div class="lg:col-span-2">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary" aria-hidden="true">
+            🚚
+          </div>
+          <h1 class="text-lg font-semibold">Shipping Address</h1>
+        </div>
+
+        <form method="post" action="{{ url_for('checkout_shipping_post') }}" class="space-y-4">
+
+          <!-- Account name (from /account) -->
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">First Name</label>
+              <div class="w-full rounded-lg border border-border px-3 py-2 bg-secondary/40 text-sm">{{ user.first_name }}</div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Last Name</label>
+              <div class="w-full rounded-lg border border-border px-3 py-2 bg-secondary/40 text-sm">{{ user.last_name }}</div>
+            </div>
+          </div>
+
+          <!-- Saved addresses -->
+          <div>
+            <label class="block text-sm font-medium mb-1" for="address_id">Saved Address</label>
+            {% if addresses and addresses|length > 0 %}
+              <select class="w-full rounded-lg border border-border px-3 py-2" id="address_id" name="address_id">
+                <option value="" {% if not shipping.get('address_id') %}selected{% endif %}>Custom (one-time)</option>
+                {% for a in addresses %}
+                  <option
+                    value="{{ a.id }}"
+                    data-street="{{ a.street_address|e }}"
+                    data-postal="{{ a.postal_code|e }}"
+                    data-country="{{ a.country|e }}"
+                    {% if shipping.get('address_id') == a.id %}selected{% endif %}
+                  >
+                    {{ (a.label or ('Address #' ~ a.id)) }} — {{ a.street_address }}
+                  </option>
+                {% endfor %}
+              </select>
+              <p class="mt-2 text-sm text-muted">
+                Manage saved addresses on <a class="underline" href="{{ url_for('web_account') }}">My Account</a>.
+              </p>
+            {% else %}
+              <div class="rounded-lg border border-border bg-secondary/30 p-4 text-sm">
+                You don’t have any saved addresses yet. Add one on
+                <a class="underline" href="{{ url_for('web_account') }}">My Account</a> to continue checkout.
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Address fields (only fields stored on /account) -->
+          <div>
+            <label class="block text-sm font-medium mb-1" for="street_address">Street Address</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="street_address" name="street_address" value="{{ shipping.get('street_address','') }}" {% if not addresses %}required{% else %}required{% endif %} />
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1" for="postal_code">Postal Code</label>
+              <input class="w-full rounded-lg border border-border px-3 py-2" id="postal_code" name="postal_code" value="{{ shipping.get('postal_code','') }}" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" for="country">Country</label>
+              <select class="w-full rounded-lg border border-border px-3 py-2" id="country" name="country" required>
+                <option value="">Select Country</option>
+                <option value="CA" {% if shipping.get('country') == 'CA' %}selected{% endif %}>Canada</option>
+                <option value="US" {% if shipping.get('country') == 'US' %}selected{% endif %}>United States</option>
+                <option value="GB" {% if shipping.get('country') == 'GB' %}selected{% endif %}>United Kingdom</option>
+                <option value="DE" {% if shipping.get('country') == 'DE' %}selected{% endif %}>Germany</option>
+                <option value="TR" {% if shipping.get('country') == 'TR' %}selected{% endif %}>Turkey</option>
+                <option value="FR" {% if shipping.get('country') == 'FR' %}selected{% endif %}>France</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1" for="phone_number">Phone Number (Optional)</label>
+            <input class="w-full rounded-lg border border-border px-3 py-2" id="phone_number" name="phone_number" value="{{ shipping.get('phone_number','') }}" />
+            <p class="mt-2 text-sm text-muted">
+              Phone is saved/updated on <a class="underline" href="{{ url_for('web_account') }}">My Account</a>.
+            </p>
+          </div>
+
+          <div class="pt-2">
+            <button
+              type="submit"
+              class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-95"
+
+            >
+              Continue to Payment
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Order Summary -->
+  <div class="lg:col-span-1">
+    <div class="rounded-xl border border-border bg-card shadow-soft">
+      <div class="p-6">
+        <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+
+        <div class="space-y-3 mb-4">
+          {% for i in items %}
+            <div class="flex items-start justify-between text-sm">
+              <div class="text-foreground/90">{{ i.name }} x{{ i.quantity }}</div>
+              <div class="text-foreground/90">${{ "%.2f"|format(i.line_total_cents/100) }}</div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="border-t border-border pt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Subtotal</span><span>${{ "%.2f"|format(summary.subtotal_cents/100) }}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Shipping</span><span>{% if summary.shipping_cents == 0 %}Free{% else %}${{ "%.2f"|format(summary.shipping_cents/100) }}{% endif %}</span></div>
+          <div class="flex justify-between"><span class="text-muted">Tax</span><span>${{ "%.2f"|format(summary.tax_cents/100) }}</span></div>
+          <div class="border-t border-border pt-3 flex justify-between font-semibold">
+            <span>Total</span><span>${{ "%.2f"|format(summary.total_cents/100) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  (function() {
+    const sel = document.getElementById('address_id');
+    if (!sel) return;
+    function apply() {
+      const opt = sel.options[sel.selectedIndex];
+      if (!opt) return;
+      if (!opt.value) return; // Custom option
+      const street = opt.getAttribute('data-street') || '';
+      const postal = opt.getAttribute('data-postal') || '';
+      const country = opt.getAttribute('data-country') || '';
+      const streetEl = document.getElementById('street_address');
+      const postalEl = document.getElementById('postal_code');
+      const countryEl = document.getElementById('country');
+      if (streetEl) streetEl.value = street;
+      if (postalEl) postalEl.value = postal;
+      if (countryEl) countryEl.value = country;
+    }
+    sel.addEventListener('change', apply);
+  })();
+</script>
+
+{% endblock %}
