@@ -2,19 +2,62 @@
 {% block title %}My Orders - BoxedWithLove{% endblock %}
 {% block content %}
 <div class="page">
-  <h1 class="h1">My Orders</h1>
+  <div class="page-row">
+    <div>
+      <h1 class="h1">My Orders</h1>
+      <p class="muted">Track your purchases and view receipts anytime.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('web_products') }}">Shop</a>
+  </div>
+
   {% if not orders %}
-    <p class="muted">You don’t have any orders yet.</p>
-    <a class="btn btn-primary" href="{{ url_for('web_products') }}">Shop Now →</a>
+    <div class="card order-empty">
+      <div class="order-empty-emoji" aria-hidden="true">🧾</div>
+      <div>
+        <div class="card-title">No orders yet</div>
+        <p class="muted">When you place an order, it’ll show up here.</p>
+        <a class="btn btn-primary" href="{{ url_for('web_products') }}">Start shopping →</a>
+      </div>
+    </div>
   {% else %}
-    <div class="stack">
+    <div class="orders-list" role="list">
       {% for o in orders %}
-        <a class="row" href="{{ url_for('web_order_detail', order_id=o.id) }}">
-          <div>
-            <div class="card-title">Order #{{ o.id }}</div>
-            <div class="muted small">Status: {{ o.status }}</div>
+        {% set item_count = (order_item_counts.get(o.id) or 0) %}
+        {% set preview = order_previews.get(o.id) %}
+        {% set status_slug = ((o.status or 'placed')|lower|replace(' ', '-')) %}
+
+        <a class="order-card" href="{{ url_for('web_order_detail', order_id=o.id) }}" role="listitem" aria-label="View details for order {{ o.id }}">
+          <div class="order-card-left">
+            <div class="order-thumb" aria-hidden="true">
+              {% if preview and preview.image_url %}
+                <img src="{{ preview.image_url }}" alt="" />
+              {% else %}
+                <span class="order-thumb-emoji">🎁</span>
+              {% endif %}
+            </div>
+
+            <div class="order-meta">
+              <div class="order-title">
+                <span>Order #{{ o.id }}</span>
+                <span class="status-pill status-{{ status_slug }}">{{ (o.status or 'placed')|title }}</span>
+              </div>
+              <div class="order-sub">
+                <span class="muted">{{ o.created_at|toronto_dt_pretty }}</span>
+                <span class="muted">•</span>
+                <span class="muted">{{ item_count }} item{{ '' if item_count == 1 else 's' }}</span>
+              </div>
+              {% if preview and preview.names %}
+                <div class="order-preview muted small">
+                  {{ preview.names|join(', ') }}{% if preview.more_count %} + {{ preview.more_count }} more{% endif %}
+                </div>
+              {% endif %}
+            </div>
           </div>
-          <div class="muted">{{ o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else '' }} →</div>
+
+          <div class="order-card-right">
+            <div class="order-total">${{ "%.2f"|format((o.total_cents or 0)/100) }}</div>
+            <div class="order-cta">View details →</div>
+          </div>
         </a>
       {% endfor %}
     </div>

@@ -84,6 +84,20 @@ def create_app() -> Flask:
             local = value
         return local.strftime("%Y-%m-%d %I:%M %p")
 
+    @app.template_filter("toronto_dt_pretty")
+    def toronto_dt_pretty(value):
+        """Human-friendly Toronto timestamp (store in UTC, display local)."""
+        if not value:
+            return ""
+        if getattr(value, "tzinfo", None) is None:
+            value = value.replace(tzinfo=timezone.utc)
+        try:
+            local = value.astimezone(ZoneInfo("America/Toronto"))
+        except Exception:
+            local = value
+        # Example: Feb 22, 2026 • 7:14 PM EST
+        return local.strftime("%b %d, %Y • %I:%M %p %Z")
+
     # --- Web pages (minimal UI) ---
     @app.get("/")
     def home():
@@ -632,7 +646,56 @@ def create_app() -> Flask:
             flash("Please log in to view your orders.", "info")
             return redirect(url_for("web_login"))
         orders = Order.query.filter_by(user_id=user.id).order_by(Order.id.desc()).all()
-        return render_template("orders.html", orders=orders)
+
+        order_item_counts: dict[int, int] = {}
+        order_previews: dict[int, dict] = {}
+        order_ids = [o.id for o in orders]
+
+        if order_ids:
+            # One query for item counts (avoid N+1).
+            rows = (
+                db.session.query(OrderItem.order_id, db.func.coalesce(db.func.sum(OrderItem.quantity), 0))
+                .filter(OrderItem.order_id.in_(order_ids))
+                .group_by(OrderItem.order_id)
+                .all()
+            )
+            order_item_counts = {int(oid): int(cnt or 0) for oid, cnt in rows}
+
+            # One query for a lightweight preview (first 2 product names + a thumbnail).
+            rows = (
+                db.session.query(OrderItem.order_id, Product.name, Product.image_url)
+                .join(Product, Product.id == OrderItem.product_id)
+                .filter(OrderItem.order_id.in_(order_ids))
+                .order_by(OrderItem.order_id.desc(), OrderItem.id.asc())
+                .all()
+            )
+
+            for oid, name, image_url in rows:
+                oid = int(oid)
+                preview = order_previews.setdefault(
+                    oid,
+                    {
+                        "image_url": image_url,
+                        "names": [],
+                        "more_count": 0,
+                    },
+                )
+
+                if not preview.get("image_url") and image_url:
+                    preview["image_url"] = image_url
+
+                if name:
+                    if len(preview["names"]) < 2:
+                        preview["names"].append(name)
+                    else:
+                        preview["more_count"] += 1
+
+        return render_template(
+            "orders.html",
+            orders=orders,
+            order_item_counts=order_item_counts,
+            order_previews=order_previews,
+        )
 
     @app.get("/orders/<int:order_id>")
     def web_order_detail(order_id: int):
@@ -644,7 +707,25 @@ def create_app() -> Flask:
         if not order:
             return render_template("404.html"), 404
         items = OrderItem.query.filter_by(order_id=order.id).all()
-        return render_template("order_detail.html", order=order, items=items)
+
+        subtotal_cents = sum(int(i.unit_price_cents) * int(i.quantity) for i in items)
+        shipping_cents = 0
+        stored_total = int(getattr(order, "total_cents", 0) or 0)
+        if stored_total <= 0:
+            stored_total = subtotal_cents + int(subtotal_cents * CHECKOUT_TAX_RATE) + shipping_cents
+        tax_cents = stored_total - subtotal_cents - shipping_cents
+        if tax_cents < 0:
+            tax_cents = int(subtotal_cents * CHECKOUT_TAX_RATE)
+            stored_total = subtotal_cents + tax_cents + shipping_cents
+
+        summary = {
+            "subtotal_cents": subtotal_cents,
+            "shipping_cents": shipping_cents,
+            "tax_cents": tax_cents,
+            "total_cents": stored_total,
+        }
+
+        return render_template("order_detail.html", order=order, items=items, summary=summary)
 
     @app.get("/login")
     def web_login():
