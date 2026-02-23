@@ -109,6 +109,10 @@ def login():
         return error("unauthorized", "invalid credentials", 401)
 
     session["user_id"] = user.id
+    
+    # Cart Merge
+    from app import session_cart_to_user
+    session_cart_to_user(user.id)
 
     return {
         "id": user.id,
