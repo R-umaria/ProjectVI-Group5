@@ -63,7 +63,7 @@
     <nav class="navwrap" aria-label="Primary">
       <a class="brand" href="{{ url_for('home') }}">BoxedWithLove</a>
 
-      <form class="navsearch" action="{{ url_for('web_products') }}" method="get" role="search">
+      <form class="navsearch navsearch--desktop" action="{{ url_for('web_products') }}" method="get" role="search">
         <span class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -73,32 +73,34 @@
         <input name="search" type="search" placeholder="Search gift baskets..." value="{{ request.args.get('search','') }}" />
       </form>
 
-      <div class="navlinks">
-        <a class="navlink" href="{{ url_for('web_products') }}">Shop</a>
+      <div class="navright">
+        <div class="navlinks navlinks--desktop">
+          <a class="navlink" href="{{ url_for('web_products') }}">Shop</a>
 
-        {% if nav_user %}
-          <details class="account">
-            <summary class="iconbtn" aria-label="Account">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21a8 8 0 0 0-16 0"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </summary>
-            <div class="menu" role="menu">
-              <div class="menu-name">{{ nav_user.email }}</div>
-              <a role="menuitem" href="{{ url_for('web_account') }}">My Account</a>
-              <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
-              <a role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
-              <div class="menu-sep"></div>
-              <form method="post" action="{{ url_for('web_logout') }}">
-                <button class="menu-danger" type="submit">Sign Out</button>
-              </form>
-            </div>
-          </details>
-        {% else %}
-          <a class="navlink" href="{{ url_for('web_login') }}">Sign In</a>
-          <a class="navlink" href="{{ url_for('web_register') }}">Register</a>
-        {% endif %}
+          {% if nav_user %}
+            <details class="account">
+              <summary class="iconbtn" aria-label="Account">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21a8 8 0 0 0-16 0"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </summary>
+              <div class="menu" role="menu">
+                <div class="menu-name">{{ nav_user.email }}</div>
+                <a role="menuitem" href="{{ url_for('web_account') }}">My Account</a>
+                <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
+                <a role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
+                <div class="menu-sep"></div>
+                <form method="post" action="{{ url_for('web_logout') }}">
+                  <button class="menu-danger" type="submit">Sign Out</button>
+                </form>
+              </div>
+            </details>
+          {% else %}
+            <a class="navlink" href="{{ url_for('web_login') }}">Sign In</a>
+            <a class="navlink" href="{{ url_for('web_register') }}">Register</a>
+          {% endif %}
+        </div>
 
         <a class="iconbtn cartbtn" href="{{ url_for('web_cart') }}" aria-label="Cart">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,8 +110,45 @@
           </svg>
           <span id="navCartBadge" class="badge" data-count="{{ nav_cart_count or 0 }}" aria-label="{{ (nav_cart_count or 0) }} items in cart" {% if not nav_cart_count or nav_cart_count <= 0 %}style="display:none"{% endif %}>{{ '9+' if nav_cart_count > 9 else (nav_cart_count or 0) }}</span>
         </a>
+
+        <button id="navToggle" class="iconbtn navtoggle" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 6h18"></path>
+            <path d="M3 12h18"></path>
+            <path d="M3 18h18"></path>
+          </svg>
+        </button>
       </div>
     </nav>
+
+    <div id="mobileNav" class="mobile-nav" hidden>
+      <form class="navsearch navsearch--mobile" action="{{ url_for('web_products') }}" method="get" role="search">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+        </span>
+        <input name="search" type="search" placeholder="Search gift baskets..." value="{{ request.args.get('search','') }}" />
+      </form>
+
+      <div class="mobile-links" role="menu" aria-label="Mobile navigation links">
+        <a class="mobile-link" role="menuitem" href="{{ url_for('web_products') }}">Shop</a>
+
+        {% if nav_user %}
+          <a class="mobile-link" role="menuitem" href="{{ url_for('web_account') }}">My Account</a>
+          <a class="mobile-link" role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
+          <a class="mobile-link" role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
+          <div class="mobile-sep" aria-hidden="true"></div>
+          <form method="post" action="{{ url_for('web_logout') }}">
+            <button class="mobile-link mobile-danger" type="submit">Sign Out</button>
+          </form>
+        {% else %}
+          <a class="mobile-link" role="menuitem" href="{{ url_for('web_login') }}">Sign In</a>
+          <a class="mobile-link" role="menuitem" href="{{ url_for('web_register') }}">Register</a>
+        {% endif %}
+      </div>
+    </div>
   </header>
 
   <main class="flex-1">

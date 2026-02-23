@@ -166,6 +166,61 @@ async function placeOrder() {
   refreshNavCartCount();
 }
 
+// --- Mobile navbar toggle ---
+function initMobileNav() {
+  const toggle = document.getElementById('navToggle');
+  const panel = document.getElementById('mobileNav');
+  if (!toggle || !panel) return;
+
+  const close = () => {
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open menu');
+  };
+
+  const open = () => {
+    panel.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close menu');
+  };
+
+  const isOpen = () => !panel.hidden;
+
+  toggle.addEventListener('click', () => {
+    if (isOpen()) close();
+    else open();
+  });
+
+  // Close when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!isOpen()) return;
+    const t = e.target;
+    if (toggle.contains(t) || panel.contains(t)) return;
+    close();
+  });
+
+  // Close on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) close();
+  });
+
+  // Close after choosing a link
+  panel.addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (a) close();
+  });
+
+  // Close if viewport resized up to desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 768) close();
+  });
+
+  // Ensure correct initial state
+  close();
+}
+
+document.addEventListener('DOMContentLoaded', initMobileNav);
+
 // --- Product detail helpers (UI only; no API changes) ---
 // Safe to include globally; activates only when [data-product-detail] is present.
 window.BWLProductDetail = (function () {
