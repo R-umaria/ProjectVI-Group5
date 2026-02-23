@@ -225,7 +225,7 @@ details.account > summary::-webkit-details-marker { display: none; }
 
 .btn-lg { padding: 12px 16px; font-size: 15px; }
 .btn-primary { background: var(--primary); border-color: rgba(0,0,0,0.08); color: var(--primary-foreground); }
-.btn-primary:hover { filter: brightness(0.98); }
+.btn-primary:hover { background: var(--primary-hover); filter: brightness(0.98); }
 .btn-outline { background: transparent; }
 .btn-secondary { background: rgba(250,247,241,0.92); border-color: rgba(250,247,241,0.55); color: #2b1a1a; }
 .btn-secondary:hover {

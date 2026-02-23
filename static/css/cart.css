@@ -266,8 +266,9 @@ button.cart-checkout {
   font-weight: 400;
 }
 
-button.cart-checkout:hover {
+.cart-checkout.btn-primary:hover {
   background: var(--primary-hover);
+  filter: brightness(0.98);
 }
 
 .cart-auth-note {
