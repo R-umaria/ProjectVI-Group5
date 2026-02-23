@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
 
   <!-- Tailwind CDN (MVP). If you later compile Tailwind, remove this. -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,23 +43,68 @@
 
   <style>
     body { font-family: 'DM Sans', system-ui, sans-serif; }
+    input[type="radio"],
+    input[type="checkbox"] {
+      width: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
   </style>
 </head>
 
-<body class="min-h-screen flex flex-col bg-background text-foreground">
+<body class="min-h-screen flex flex-col">
+  <header class="topbar" role="banner">
+    <nav class="navwrap" aria-label="Primary">
+      <a class="brand" href="{{ url_for('home') }}">BoxedWithLove</a>
 
-  <header class="border-b border-border bg-card">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-      <div class="flex items-center justify-between">
-        <a href="{{ url_for('home') }}" class="inline-block">
-          <span class="font-serif text-xl font-semibold">BoxedWithLove</span>
-        </a>
-        <a href="{{ url_for('web_cart') }}" class="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground">
-          <span aria-hidden="true">←</span>
-          Back to Cart
+      <form class="navsearch" action="{{ url_for('web_products') }}" method="get" role="search">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+        </span>
+        <input name="search" type="search" placeholder="Search gift baskets..." value="{{ request.args.get('search','') }}" />
+      </form>
+
+      <div class="navlinks">
+        <a class="navlink" href="{{ url_for('web_products') }}">Shop</a>
+
+        {% if nav_user %}
+          <details class="account">
+            <summary class="iconbtn" aria-label="Account">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21a8 8 0 0 0-16 0"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </summary>
+            <div class="menu" role="menu">
+              <div class="menu-name">{{ nav_user.email }}</div>
+              <a role="menuitem" href="{{ url_for('web_account') }}">My Account</a>
+              <a role="menuitem" href="{{ url_for('web_orders') }}">My Orders</a>
+              <a role="menuitem" href="{{ url_for('web_payment_methods') }}">Payment Methods</a>
+              <div class="menu-sep"></div>
+              <form method="post" action="{{ url_for('web_logout') }}">
+                <button class="menu-danger" type="submit">Sign Out</button>
+              </form>
+            </div>
+          </details>
+        {% else %}
+          <a class="navlink" href="{{ url_for('web_login') }}">Sign In</a>
+          <a class="navlink" href="{{ url_for('web_register') }}">Register</a>
+        {% endif %}
+
+        <a class="iconbtn cartbtn" href="{{ url_for('web_cart') }}" aria-label="Cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6z"></path>
+            <path d="M3 6h18"></path>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span id="navCartBadge" class="badge" data-count="{{ nav_cart_count or 0 }}" aria-label="{{ (nav_cart_count or 0) }} items in cart" {% if not nav_cart_count or nav_cart_count <= 0 %}style="display:none"{% endif %}>{{ '9+' if nav_cart_count > 9 else (nav_cart_count or 0) }}</span>
         </a>
       </div>
-    </div>
+    </nav>
   </header>
 
   <main class="flex-1">
@@ -81,5 +127,6 @@
     </div>
   </main>
 
+  <script src="{{ url_for('static', filename='js/site.js') }}"></script>
 </body>
 </html>

@@ -70,8 +70,8 @@
                 {% if checked %} border-primary bg-primary/5 {% else %} border-border bg-card hover:bg-secondary/30 {% endif %}"
                 data-pm-card="{{ m.id }}">
                 <div class="flex items-center justify-between gap-4">
-                  <div class="flex items-start gap-3">
-                    <input type="radio" name="payment_method_id" value="{{ m.id }}" class="mt-1" {% if checked %}checked{% endif %} />
+                  <div class="flex items-center gap-3">
+                    <input type="radio" name="payment_method_id" value="{{ m.id }}" {% if checked %}checked{% endif %} />
                     <div>
                       <div class="font-medium">{{ m.brand }} ending in {{ m.last4 }}</div>
                       <div class="text-sm text-muted">Expires {{ "%02d"|format(m.exp_month) }}/{{ (m.exp_year|string)[-2:] }}</div>
@@ -275,8 +275,8 @@
 
         wrapper.innerHTML = `
           <div class="flex items-center justify-between gap-4">
-            <div class="flex items-start gap-3">
-              <input type="radio" name="payment_method_id" value="${m.id}" class="mt-1" checked />
+            <div class="flex items-center gap-3">
+              <input type="radio" name="payment_method_id" value="${m.id}" checked />
               <div>
                 <div class="font-medium">${m.brand} ending in ${m.last4}</div>
                 <div class="text-sm text-muted">Expires ${String(m.exp_month).padStart(2,'0')}/${String(m.exp_year).slice(-2)}</div>
