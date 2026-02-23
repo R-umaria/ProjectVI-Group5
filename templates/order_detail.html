@@ -5,15 +5,16 @@
   {% set status_slug = ((order.status or 'placed')|lower|replace(' ', '-')) %}
 
   <div class="order-header">
-    <a class="link" href="{{ url_for('web_orders') }}">← Back to orders</a>
-    <div class="order-header-main">
-      <h1 class="h1">Order #{{ order.id }}</h1>
-      <div class="order-header-meta">
-        <span class="status-pill status-{{ status_slug }}">{{ (order.status or 'placed')|title }}</span>
-        <span class="muted">Placed {{ order.created_at|toronto_dt_pretty }}</span>
+    <div class="order-header-left">
+      <a class="link" href="{{ url_for('web_orders') }}">← Back to orders</a>
+      <div class="order-header-main">
+        <h1 class="h1">Order #{{ order.id }}</h1>
+        <div class="order-header-meta">
+          <span class="status-pill status-{{ status_slug }}">{{ (order.status or 'placed')|title }}</span>
+          <span class="muted">Placed {{ order.created_at|toronto_dt_pretty }}</span>
+        </div>
       </div>
     </div>
-    <a class="btn btn-outline" href="{{ url_for('web_products') }}">Shop again</a>
   </div>
 
   <div class="order-layout">
@@ -63,11 +64,12 @@
       </div>
 
       <div class="card">
-        <h2 class="order-section-title">Need help?</h2>
-        <p class="muted small" style="margin: 8px 0 0;">
-          This is a course MVP, so shipping and payment details are not stored on the order.
-          For account info, visit <a class="link" href="{{ url_for('web_account') }}">My Account</a>.
-        </p>
+        <h2 class="order-section-title">Shop again</h2>
+        <p class="muted small" style="margin: 8px 0 0;">Add all items from this order back to your cart.</p>
+
+        <form method="post" action="{{ url_for('web_order_shop_again', order_id=order.id) }}" style="margin-top: 12px;">
+          <button class="btn btn-primary" type="submit" {% if not items %}disabled{% endif %}>Shop again</button>
+        </form>
       </div>
     </aside>
   </div>

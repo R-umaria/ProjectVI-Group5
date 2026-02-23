@@ -727,6 +727,71 @@ def create_app() -> Flask:
 
         return render_template("order_detail.html", order=order, items=items, summary=summary)
 
+    @app.post("/orders/<int:order_id>/shop-again")
+    def web_order_shop_again(order_id: int):
+        """Add all items from an order back into the user's cart ("buy again")."""
+        user = current_user()
+        if not user:
+            flash("Please log in to shop again.", "info")
+            return redirect(url_for("web_login", redirect=f"/orders/{order_id}"))
+
+        order = Order.query.filter_by(id=order_id, user_id=user.id).first()
+        if not order:
+            return render_template("404.html"), 404
+
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        if not items:
+            flash("This order has no items to add.", "info")
+            return redirect(url_for("web_order_detail", order_id=order_id))
+
+        # Bulk fetch products + existing cart items to avoid N+1.
+        product_ids = list({int(i.product_id) for i in items if i.product_id is not None})
+        if not product_ids:
+            flash("No valid products found in this order.", "info")
+            return redirect(url_for("web_order_detail", order_id=order_id))
+
+        products = Product.query.filter(Product.id.in_(product_ids)).all()
+        products_by_id = {int(p.id): p for p in products}
+
+        existing = CartItem.query.filter(
+            CartItem.user_id == user.id,
+            CartItem.product_id.in_(product_ids),
+        ).all()
+        existing_by_pid = {int(ci.product_id): ci for ci in existing}
+
+        added_qty = 0
+        skipped = 0
+        for oi in items:
+            pid = int(oi.product_id)
+            qty = int(getattr(oi, "quantity", 0) or 0)
+            if qty < 1:
+                continue
+            if pid not in products_by_id:
+                skipped += 1
+                continue
+
+            ci = existing_by_pid.get(pid)
+            if ci:
+                ci.quantity = int(ci.quantity) + qty
+            else:
+                ci = CartItem(user_id=user.id, product_id=pid, quantity=qty)
+                db.session.add(ci)
+                existing_by_pid[pid] = ci
+
+            added_qty += qty
+
+        db.session.commit()
+
+        if added_qty > 0:
+            msg = f"Added {added_qty} item" + ("s" if added_qty != 1 else "") + " to your cart."
+            if skipped:
+                msg += f" ({skipped} item" + ("s" if skipped != 1 else "") + " unavailable.)"
+            flash(msg, "success")
+            return redirect(url_for("web_cart"))
+
+        flash("No items could be added to your cart.", "info")
+        return redirect(url_for("web_order_detail", order_id=order_id))
+
     @app.get("/login")
     def web_login():
         return render_template("login.html")

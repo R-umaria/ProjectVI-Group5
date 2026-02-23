@@ -611,6 +611,7 @@ input {
   margin-bottom: 10px;
 }
 
+.order-header-left { display: flex; flex-direction: column; gap: 10px; }
 .order-header-main { display: flex; flex-direction: column; gap: 6px; }
 .order-header-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
