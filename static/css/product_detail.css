@@ -215,7 +215,7 @@
 .product-buy .qty-btn { width: 40px; height: 42px; }
 .product-buy .qty-value { width: 46px; font-size: 14px; }
 
-.product-buy .btn-primary { height: 44px; border-radius: 12px; }
+.product-buy .btn-primary { height: 44px; border-radius: 12px; } .btn-primary:hover{ background: var(--primary-hover); }
 
 /* Reviews */
 .product-reviews {

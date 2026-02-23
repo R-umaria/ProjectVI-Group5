@@ -1,20 +1,38 @@
 ProductName,ProductPrice,Image_URL,Category,Description
-Basket01,2999,Picture,Basket,Closed Rectangular Basket
-Basket02,1999,Picture,Basket,Oval Basket with two handles
-Basket03,1299,Picture,Basket,Round Basket with one handle
-Basket04,1599,Picture,Basket,Oval Basket 
-Book01,799,Picture,Book,Red Book
-Book02,599,Picture,Book,Brown Cardboard Book
-Book03,1299,Picture,Book,Vitage looking Book
-Book04,599,Picture,Book,Black Book
-Box01,1099,Picture,Box,Black Gift Box
-Box02,1599,Picture,Box,Pink Gift Box
-Box03,2099,Picture,Box,Cardboard  Gift Box with Green Ribbon
-Box04,1099,Picture,Box,Blue Gift Box
-Candle01,1099,Picture,Candle,White candle in a jar
-Candle02,1299,Picture,Candle,Small colorful candles in a jar
-Candle03,1799,Picture,Candle,Flower printed candles in a jar
-Flower01,1199,Picture,Flower,Crochet Sunflower
-Flower02,999,Picture,Flower,Crochet flower basket
-Flower03,999,Picture,Flower,Crochet Rose
-Food01,2599,Picture,Food,Chocolates in a rectangle box
+Twinkle Night Gift Box,6999,Box01.jpg,Box,"A cozy kraft gift box wrapped for a warm night in—perfect for comfort gifting."
+Crimson Ribbon Gift Box,7999,Box02.jpg,Box,"A premium kraft gift box tied with a bold red ribbon—classic holiday-ready presentation."
+Sage Garden Gift Box,7499,Box03.jpg,Box,"A green gift box finished with twine and roses—romantic, minimal-luxe gifting."
+Velvet Bloom Gift Box,8999,Box04.jpg,Box,"A statement gift box with a velvet ribbon and floral accent—premium and photo-ready."
+
+Gourmet Charcuterie Basket,8999,Basket01.jpg,Basket,"A full charcuterie-style basket with savory snacks and gourmet bites for sharing."
+Coffee & Treats Gift Tray,8299,Basket02.jpg,Basket,"A café-inspired tray with coffee-forward treats and indulgent snack pairings."
+Spa & Sweets Wooden Crate,9999,Basket03.jpg,Basket,"A wooden crate blending self-care essentials with sweet treats—elevated relaxation gifting."
+Linen & Light Reading Basket,7499,Basket04.jpg,Basket,"A cozy basket with a book-and-candle vibe—made for slow mornings and soft evenings."
+
+Wildflower Honey Jar,1499,Food01.jpg,Food,"A sweet, golden honey jar—simple, premium, and giftable."
+Artisan Snack Selection,1699,Food02.jpg,Food,"A curated gourmet snack pick—perfect for add-on gifting or small surprises."
+Assorted Macaron Box,2099,Food03.jpg,Food,"A delicate selection of macarons—light, colorful, and celebration-ready."
+Luxury Chocolate Gift Box,2499,Food04.jpg,Food,"A premium chocolate assortment—classic gifting with a luxe feel."
+Sea-Salt Caramel Popcorn,1599,Food05.jpg,Food,"Crunchy caramel popcorn with a hint of salt—sweet, premium snacking."
+Spiced Nuts & Fruit Mix,1799,Food06.jpg,Food,"A balanced blend of nuts and dried fruit—clean, shareable, and gift-friendly."
+
+Violet & Eucalyptus Bouquet,4499,Flower01.jpg,Flower,"A modern purple bouquet with fresh greenery—minimal, romantic, and elegant."
+Blush Garden Bouquet,4999,Flower02.jpg,Flower,"A soft pink bouquet with a premium floral mix—perfect for love-giving moments."
+Classic Rose Bouquet,5499,Flower03.jpg,Flower,"A timeless bouquet styled for gifting—romantic, premium, and photo-perfect."
+
+White Musk & Warm Vanilla Candle,2399,Candle01.jpg,Candle,"A clean, cozy fragrance profile—warm vanilla with a soft musk finish."
+Gryffindor Scented Candle,2799,Candle02.jpg,Candle,"A themed candle with a bold label—great for gifting to fantasy lovers."
+Ivory Ribbed Pillar Candle Set,2199,Candle03.jpg,Candle,"A minimalist pillar candle duo—soft ivory tones with modern texture."
+The Boy Who Lived Soy Candle,2699,Candle04.jpg,Candle,"A themed soy candle in a glass jar—cozy, collectible, and gift-ready."
+Thai Lime & Mango Candle,2599,Thai.jpg,Candle,"A bright tropical scent—lime + mango notes in a premium glass candle."
+
+Floral Lace Keepsake Journal,1899,Book01.jpg,Book,"A decorative journal with lace + dried florals—made for letters and memories."
+Modern Home Cookbook,2499,Book02.jpg,Book,"A recipe-style cookbook page spread—ideal for foodies and home cooks."
+Minimal Kraft Notebook,1299,Book03.jpg,Book,"A simple notebook styled with coffee and pens—clean, everyday writing."
+Lavender Reading Paperback,1599,Book04.jpg,Book,"A calm reading moment with lavender styling—soft, cozy, and giftable."
+
+Classic Teddy Bear Plush,2499,Toy01.jpg,Toy,"A soft teddy bear plush—timeless comfort gifting."
+Coral Octopus Plush,2199,Toy02.jpg,Toy,"A bright, playful octopus plush—cute and collectible."
+Stitch Plush Buddy,2999,Toy03.jpg,Toy,"A character-style plush companion—great for fans and cozy gifting."
+Snuggly Bunny Plush,2399,Toy04.jpg,Toy,"A gentle bunny plush—sweet, soft, and love-giving."
+Penguin Plush Pal,2299,Toy05.jpg,Toy,"A cuddly penguin plush—small, premium, and gift-ready."

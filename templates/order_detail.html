@@ -2,26 +2,76 @@
 {% block title %}Order #{{ order.id }} - BoxedWithLove{% endblock %}
 {% block content %}
 <div class="page">
-  <div class="page-row">
-    <h1 class="h1">Order #{{ order.id }}</h1>
-    <a class="link" href="{{ url_for('web_orders') }}">Back to orders →</a>
-  </div>
-  <p class="muted">Status: <strong>{{ order.status }}</strong></p>
+  {% set status_slug = ((order.status or 'placed')|lower|replace(' ', '-')) %}
 
-  {% if items %}
-    <div class="stack">
-      {% for item in items %}
-        <div class="row">
-          <div>
-            <div class="card-title">{{ item.product.name if item.product else ('Product #' ~ item.product_id) }}</div>
-            <div class="muted small">Qty: {{ item.quantity }}</div>
-          </div>
-          <div class="muted">${{ "%.2f"|format((item.unit_price_cents * item.quantity)/100) }}</div>
+  <div class="order-header">
+    <div class="order-header-left">
+      <a class="link" href="{{ url_for('web_orders') }}">← Back to orders</a>
+      <div class="order-header-main">
+        <h1 class="h1">Order #{{ order.id }}</h1>
+        <div class="order-header-meta">
+          <span class="status-pill status-{{ status_slug }}">{{ (order.status or 'placed')|title }}</span>
+          <span class="muted">Placed {{ order.created_at|toronto_dt_pretty }}</span>
         </div>
-      {% endfor %}
+      </div>
     </div>
-  {% else %}
-    <p class="muted">No items found for this order.</p>
-  {% endif %}
+  </div>
+
+  <div class="order-layout">
+    <section class="card">
+      <div class="order-section-head">
+        <h2 class="order-section-title">Items</h2>
+        <div class="muted small">{{ items|length }} item{{ '' if (items|length) == 1 else 's' }}</div>
+      </div>
+
+      {% if items %}
+        <div class="order-items-list">
+          {% for item in items %}
+            {% set p = item.product %}
+            {% set line_total = item.unit_price_cents * item.quantity %}
+            <div class="order-item">
+              <div class="order-item-left">
+                <div class="order-thumb order-thumb-sm" aria-hidden="true">
+                  {% if p and p.image_url %}
+                    <img src="{{ p.image_url }}" alt="" />
+                  {% else %}
+                    <span class="order-thumb-emoji">🎁</span>
+                  {% endif %}
+                </div>
+                <div class="order-item-meta">
+                  <div class="order-item-name">{{ p.name if p else ('Product #' ~ item.product_id) }}</div>
+                  <div class="muted small">Qty {{ item.quantity }} • ${{ "%.2f"|format(item.unit_price_cents/100) }} each</div>
+                </div>
+              </div>
+              <div class="order-item-total">${{ "%.2f"|format(line_total/100) }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">No items found for this order.</p>
+      {% endif %}
+    </section>
+
+    <aside class="stack">
+      <div class="card">
+        <h2 class="order-section-title">Order Summary</h2>
+        <div class="order-summary-rows">
+          <div class="summary-row"><span class="muted">Subtotal</span><span>${{ "%.2f"|format(summary.subtotal_cents/100) }}</span></div>
+          <div class="summary-row"><span class="muted">Shipping</span><span>{% if summary.shipping_cents == 0 %}Free{% else %}${{ "%.2f"|format(summary.shipping_cents/100) }}{% endif %}</span></div>
+          <div class="summary-row"><span class="muted">Tax</span><span>${{ "%.2f"|format(summary.tax_cents/100) }}</span></div>
+          <div class="summary-row summary-total"><span>Total</span><span>${{ "%.2f"|format(summary.total_cents/100) }}</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="order-section-title">Shop again</h2>
+        <p class="muted small" style="margin: 8px 0 0;">Add all items from this order back to your cart.</p>
+
+        <form method="post" action="{{ url_for('web_order_shop_again', order_id=order.id) }}" style="margin-top: 12px;">
+          <button class="btn btn-primary" type="submit" {% if not items %}disabled{% endif %}>Shop again</button>
+        </form>
+      </div>
+    </aside>
+  </div>
 </div>
 {% endblock %}
