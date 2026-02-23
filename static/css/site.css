@@ -218,16 +218,17 @@ details.account > summary::-webkit-details-marker { display: none; }
   .mobile-links {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
     margin-top: 10px;
   }
 
   .mobile-link {
-    display: block;
-    width: 100%;
+    display: inline-block;
+    width: auto;
     text-align: left;
-    padding: 12px 12px;
-    border-radius: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
     border: 1px solid var(--border);
     background: rgba(243, 234, 220, 0.45);
     color: var(--foreground);
