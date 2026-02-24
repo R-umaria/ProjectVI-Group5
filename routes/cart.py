@@ -36,19 +36,25 @@ def get_cart():
         # non logged in, get from session
         cart = get_session_cart()
         cart_items = []
-        for product_id_str, quantity in cart.items():
-            product = Product.query.get(int(product_id_str))
-            if product:
-                cart_items.append({
-                    "id": f"session_{product_id_str}",
-                    "product_id": product.id,
-                    "product_name": product.name,
-                    "product_description": product.description,
-                    "product_image": product.image_url,
-                    "price_cents": product.price_cents,
-                    "quantity": quantity,
-                    "subtotal_cents": product.price_cents * quantity
-                })
+        if cart:
+            # batch fetch all products in one query instead of one-per-item
+            product_ids = [int(pid) for pid in cart.keys()]
+            products_by_id = {
+                p.id: p for p in Product.query.filter(Product.id.in_(product_ids)).all()
+            }
+            for product_id_str, quantity in cart.items():
+                product = products_by_id.get(int(product_id_str))
+                if product:
+                    cart_items.append({
+                        "id": f"session_{product_id_str}",
+                        "product_id": product.id,
+                        "product_name": product.name,
+                        "product_description": product.description,
+                        "product_image": product.image_url,
+                        "price_cents": product.price_cents,
+                        "quantity": quantity,
+                        "subtotal_cents": product.price_cents * quantity
+                    })
     
     # calculate totals
     subtotal = sum(item["subtotal_cents"] for item in cart_items)
