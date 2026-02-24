@@ -1104,6 +1104,127 @@ def create_app() -> Flask:
             ])
             db.session.commit()
 
+    @app.cli.command("seed-reviews")
+    def seed_reviews_cmd():
+        """Seed demo users + reviews from reviews.csv.
+
+        Expected columns:
+          product_name, reviewer_first_name, reviewer_last_name, reviewer_email, rating, comment, created_at_utc
+        """
+        with app.app_context():
+            db.create_all()
+
+            if Product.query.count() == 0:
+                print("No products found. Run: flask --app app.py seed")
+                return
+
+            csv_path = Path(__file__).resolve().parent / "reviews.csv"
+            if not csv_path.exists():
+                print(f"reviews.csv not found at {csv_path}. Add it to the repo root and re-run.")
+                return
+
+            # Lookup maps
+            products_by_name = {p.name.strip().lower(): p for p in Product.query.all()}
+            users_by_email = {u.email.strip().lower(): u for u in User.query.all()}
+
+            # Dedup key: (user_id, product_id, rating, comment)
+            existing = set(
+                (r.user_id, r.product_id, int(r.rating), (r.comment or "").strip())
+                for r in Review.query.all()
+            )
+
+            created_users = 0
+            created_reviews = 0
+            skipped = 0
+
+            def parse_created_at_utc(raw: str | None):
+                raw = (raw or "").strip()
+                if not raw:
+                    return datetime.utcnow()
+                try:
+                    # Accept ISO with trailing Z
+                    if raw.endswith("Z"):
+                        raw2 = raw[:-1] + "+00:00"
+                    else:
+                        raw2 = raw
+                    parsed = datetime.fromisoformat(raw2)
+                    # If tz-aware, normalize to UTC and store naive
+                    if getattr(parsed, "tzinfo", None) is not None:
+                        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                    return parsed
+                except Exception:
+                    return datetime.utcnow()
+
+            with open(csv_path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    product_name = (row.get("product_name") or "").strip()
+                    if not product_name:
+                        continue
+
+                    p = products_by_name.get(product_name.lower())
+                    if not p:
+                        # allow matching by SKU if someone swaps to sku later
+                        sku = (row.get("product_sku") or "").strip()
+                        if sku:
+                            p = Product.query.filter_by(sku=sku).first()
+                    if not p:
+                        skipped += 1
+                        continue
+
+                    email = (row.get("reviewer_email") or "").strip().lower()
+                    if not email:
+                        skipped += 1
+                        continue
+
+                    fn = (row.get("reviewer_first_name") or "Seed").strip() or "Seed"
+                    ln = (row.get("reviewer_last_name") or "User").strip() or "User"
+
+                    u = users_by_email.get(email)
+                    if not u:
+                        u = User(
+                            email=email,
+                            password_hash=generate_password_hash("SeedUser123!"),
+                            first_name=fn,
+                            last_name=ln,
+                        )
+                        db.session.add(u)
+                        db.session.flush()  # assign id
+                        users_by_email[email] = u
+                        created_users += 1
+
+                    try:
+                        rating = int(row.get("rating") or 0)
+                    except Exception:
+                        rating = 0
+                    if rating < 1 or rating > 5:
+                        rating = 5
+
+                    comment = (row.get("comment") or "").strip() or None
+                    created_at = parse_created_at_utc(row.get("created_at_utc"))
+
+                    key = (u.id, p.id, int(rating), (comment or "").strip())
+                    if key in existing:
+                        skipped += 1
+                        continue
+
+                    db.session.add(
+                        Review(
+                            user_id=u.id,
+                            product_id=p.id,
+                            rating=rating,
+                            comment=comment,
+                            created_at=created_at,
+                        )
+                    )
+                    existing.add(key)
+                    created_reviews += 1
+
+            db.session.commit()
+            print(
+                f"Seeded {created_reviews} reviews (created {created_users} users, skipped {skipped})."
+            )
+
     return app
 
 # merges the session cart into users database cart when they log in or register, 
