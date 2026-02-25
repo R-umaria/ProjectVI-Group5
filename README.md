@@ -10,8 +10,8 @@ This project is implemented with **Flask + PostgreSQL + Docker** and is designed
 ## Team & Modules
 
 - **Ceren** — Auth & Accounts  
-- **Krishi** — Catalog & Product Details  
-- **Andy** — Cart Management  
+- **Krishi** — Catalog & Product Details + Performance Testing
+- **Andy** — Cart Management + Performance Testing
 - **Rishi** — Checkout & Orders + Performance Testing
 
 ---
@@ -210,13 +210,14 @@ pytest -q
 The load testing narrative targets holiday-season spikes:
 
 * **Browsing rush:** mostly `GET /api/products` and `GET /api/products/<id>`
-* **Purchase rush:** `POST /api/cart/items` + `POST /api/orders`
+* **Purchase rush:** `POST /api/cart/items<itemid>`, `GET /api/cart/items`, `PATCH /api/cart/items<itemid>`, `DELETE /api/cart/items<itemid>`
 
 Recommended metrics to report:
 
 * Throughput (req/sec)
 * p95 latency
 * Error rate
+* Response time
 
 ---
 
