@@ -1,4 +1,4 @@
-from flask import jsonify, session
+from flask import jsonify, session, g
 from models import User
 
 def error(code: str, message: str, status: int = 400, details: dict | None = None):
@@ -8,7 +8,7 @@ def error(code: str, message: str, status: int = 400, details: dict | None = Non
     return jsonify(payload), status
 
 def current_user() -> User | None:
-    uid = session.get("user_id")
-    if not uid:
-        return None
-    return User.query.get(uid)
+    if "current_user" not in g:
+        uid = session.get("user_id")
+        g.current_user = User.query.get(uid) if uid else None
+    return g.current_user
